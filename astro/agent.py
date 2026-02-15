@@ -1,6 +1,5 @@
 """Gemini-powered agent that answers questions by exploring and querying a DuckDB warehouse."""
 
-import json
 import sys
 import time
 

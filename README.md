@@ -1,5 +1,24 @@
 # Mini Data Platform
 
+## Installation
+
+Install from PyPI:
+
+```bash
+pip install astro-surya-oss
+```
+
+Then run from any directory with a DuckDB warehouse:
+
+```bash
+export GEMINI_API_KEY=your-api-key
+surya-astro
+```
+
+The CLI looks for `warehouse/data.duckdb` in the current directory or up to 6 parent directories.
+
+---
+
 If you have an applied AI interview at Astronomer, we'll ask you to build a small project around this repo. You can also proactively do this as part of your application to speed up the process.
 
 This repo is a synthetic data platform containing mock data csv files, Airflow DAGs, dbt models, Evidence dashboards, and a DuckDB data warehouse. Your objective is to create an agent exposed via a CLI to interact with the data platform. This CLI agent should be geared specifically towards ad-hoc questions and analysis. Things like:

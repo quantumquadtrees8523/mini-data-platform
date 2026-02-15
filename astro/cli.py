@@ -78,23 +78,10 @@ def _chat_loop(agent: Agent):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="astro",
+        prog="surya-astro",
         description="Query your data warehouse using natural language.",
     )
-    parser.add_argument(
-        "--ask",
-        help="Question to ask (then enter interactive chat). Omit to start chatting directly.",
-    )
-    parser.add_argument(
-        "--db",
-        help="Path to DuckDB file (default: auto-detect warehouse/data.duckdb).",
-    )
-    parser.add_argument(
-        "--model",
-        default="gemini-2.0-flash",
-        help="Gemini model to use (default: gemini-2.0-flash).",
-    )
-    args = parser.parse_args()
+    parser.parse_args()
 
     # --- load .env from project root ---
     env_path = _find_env()
@@ -102,14 +89,11 @@ def main():
         load_dotenv(env_path)
 
     # --- resolve database ---
-    if args.db:
-        db_path = Path(args.db)
-    else:
-        db_path = _find_warehouse()
+    db_path = _find_warehouse()
     if not db_path or not db_path.exists():
         print(fmt.error("Could not find DuckDB database."), file=sys.stderr)
         print(
-            f"  {fmt.DIM}Run from the project root or pass --db <path>.{fmt.RESET}",
+            f"  {fmt.DIM}Run from a directory with warehouse/data.duckdb{fmt.RESET}",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -126,22 +110,12 @@ def main():
     location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
 
     # --- run ---
+    model = "gemini-2.0-flash"
     dl = DataLayer(db_path)
     try:
-        print(fmt.banner(str(db_path), args.model), file=sys.stderr)
-        agent = Agent(dl, api_key, model=args.model, project=project, location=location)
+        print(fmt.banner(str(db_path), model), file=sys.stderr)
+        agent = Agent(dl, api_key, model=model, project=project, location=location)
         print(fmt.success("Connected."), file=sys.stderr)
-
-        # Answer the initial --ask question if provided
-        if args.ask:
-            print(
-                f"\n  {fmt.DIM}Analyzing:{fmt.RESET} {args.ask}\n",
-                file=sys.stderr,
-            )
-            answer = agent.ask(args.ask)
-            print(fmt.answer_box(answer))
-            print(fmt.sources_section(agent.get_sources()))
-            print()
 
         # Drop into interactive chat
         _chat_loop(agent)
