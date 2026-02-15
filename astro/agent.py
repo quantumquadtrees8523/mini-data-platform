@@ -288,6 +288,7 @@ class Agent:
 
     def _execute_tool(self, name: str, args: dict):
         """Dispatch a tool call to the data layer and display results."""
+        args = _sanitize_args(name, args)
         _print_step(name, args)
 
         try:
@@ -349,7 +350,31 @@ class Agent:
             _log(fmt.error(str(e)))
             if name == "execute_query":
                 self._record_query_error(args.get("sql", ""), str(e))
-            return {"error": str(e)}
+            return {
+                "error": str(e),
+                "tool": name,
+                "args_received": {k: type(v).__name__ for k, v in args.items()},
+                "hint": f"The call to '{name}' failed. Check that all required "
+                        "arguments are provided with correct types and retry.",
+            }
+
+
+_ARG_DEFAULTS: dict[str, dict[str, object]] = {
+    "create_chart": {"x_data": [], "y_data": [], "x_label": "", "y_label": "", "title": ""},
+    "sample_data": {"limit": 5},
+}
+
+
+def _sanitize_args(tool_name: str, args: dict) -> dict:
+    """Replace None values with sensible defaults so downstream code never blows up."""
+    defaults = _ARG_DEFAULTS.get(tool_name, {})
+    cleaned: dict = {}
+    for key, value in args.items():
+        if value is None and key in defaults:
+            cleaned[key] = defaults[key]
+        else:
+            cleaned[key] = value
+    return cleaned
 
 
 def _log(msg: str):
