@@ -122,3 +122,308 @@ cases:
       - type: approx_number
         value: 6259925.18
         tolerance: 1000
+
+  # ══════════════════════════════════════════════════════════════════
+  # EDGE CASE TESTS
+  # ══════════════════════════════════════════════════════════════════
+
+  # ── Data Integrity Tests ─────────────────────────────────────────
+  # These verify that staging layer correctly cleans/transforms bad data
+
+  - id: no_negative_totals
+    question: "How many orders have a negative total amount?"
+    tags: [edge_case, data_integrity]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE total < 0
+    assertions:
+      - type: exact_number
+        value: 0
+      - type: contains_any
+        values: ["0", "zero", "none", "no orders"]
+
+  - id: no_future_transactions
+    question: "How many orders have a transaction date in the future?"
+    tags: [edge_case, data_integrity]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE transaction_date > CURRENT_DATE
+    assertions:
+      - type: exact_number
+        value: 0
+      - type: contains_any
+        values: ["0", "zero", "none", "no orders"]
+
+  - id: no_invalid_ages
+    question: "How many customers have an age less than 18 or greater than 100?"
+    tags: [edge_case, data_integrity]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM staging.stg_users
+      WHERE age < 18 OR age > 100
+    assertions:
+      - type: exact_number
+        value: 0
+      - type: contains_any
+        values: ["0", "zero", "none", "no customers"]
+
+  # ── NULL Handling Edge Cases ─────────────────────────────────────
+
+  - id: orders_without_campaign
+    question: "How many orders are not linked to any marketing campaign?"
+    tags: [edge_case, null_handling]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE campaign_id IS NULL
+    assertions:
+      - type: exact_number
+        value: 26999
+
+  - id: products_with_null_brand
+    question: "How many products don't have a brand specified?"
+    tags: [edge_case, null_handling]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM staging.stg_products
+      WHERE brand IS NULL
+    assertions:
+      - type: exact_number
+        value: 0
+
+  - id: campaign_attributed_revenue
+    question: "What percentage of revenue comes from orders linked to marketing campaigns?"
+    tags: [edge_case, null_handling, calculation]
+    verification_sql: >
+      SELECT ROUND(100.0 * SUM(CASE WHEN campaign_id IS NOT NULL THEN total ELSE 0 END) / SUM(total), 2) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: approx_number
+        value: 24.96
+        tolerance: 1.0
+
+  # ── Negative/Inverse Queries ─────────────────────────────────────
+
+  - id: non_completed_order_count
+    question: "How many orders are NOT completed (pending, cancelled, or refunded)?"
+    tags: [edge_case, inverse, status]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE status != 'completed'
+    assertions:
+      - type: exact_number
+        value: 3526
+
+  - id: cancelled_order_count
+    question: "How many orders were cancelled?"
+    tags: [edge_case, status]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE status = 'cancelled'
+    assertions:
+      - type: exact_number
+        value: 1168
+
+  - id: refunded_order_total
+    question: "What is the total value of refunded orders?"
+    tags: [edge_case, status, aggregation]
+    verification_sql: >
+      SELECT ROUND(SUM(total), 2) as answer
+      FROM marts.fct_orders
+      WHERE status = 'refunded'
+    assertions:
+      - type: approx_number
+        value: 1194003.48
+        tolerance: 1000
+
+  # ── Boundary Condition Tests ─────────────────────────────────────
+
+  - id: lowest_revenue_category
+    question: "Which product category has the lowest total revenue?"
+    tags: [edge_case, boundary, min]
+    verification_sql: >
+      SELECT category, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      GROUP BY category
+      ORDER BY revenue ASC
+      LIMIT 1
+    assertions:
+      - type: contains_all
+        values: ["Toys"]
+
+  - id: smallest_order_value
+    question: "What is the smallest order total?"
+    tags: [edge_case, boundary, min]
+    verification_sql: >
+      SELECT ROUND(MIN(total), 2) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: approx_number
+        value: 5.0
+        tolerance: 1.0
+
+  - id: largest_single_order
+    question: "What is the largest single order total?"
+    tags: [edge_case, boundary, max]
+    verification_sql: >
+      SELECT ROUND(MAX(total), 2) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: approx_number
+        value: 4999.32
+        tolerance: 5.0
+
+  # ── Multi-Condition Complex Filters ──────────────────────────────
+
+  - id: high_value_electronics_orders
+    question: "How many completed orders from high_value customers are in the Electronics category?"
+    tags: [edge_case, multi_condition, complex]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE customer_segment = 'high_value'
+        AND category = 'Electronics'
+        AND status = 'completed'
+    assertions:
+      - type: exact_number
+        value: 1591
+
+  - id: discounted_completed_orders
+    question: "How many completed orders used a discount code?"
+    tags: [edge_case, multi_condition]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE status = 'completed'
+        AND is_discounted = true
+    assertions:
+      - type: exact_number
+        value: 8149
+
+  # ── Time Boundary Tests ──────────────────────────────────────────
+
+  - id: first_order_date
+    question: "What was the date of the first order ever recorded?"
+    tags: [edge_case, time, min]
+    verification_sql: >
+      SELECT MIN(transaction_date) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: contains_any
+        values: ["2023-01-01", "January 1, 2023", "Jan 1 2023", "2023/01/01"]
+
+  - id: last_order_date
+    question: "What was the date of the most recent order?"
+    tags: [edge_case, time, max]
+    verification_sql: >
+      SELECT MAX(transaction_date) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: contains_any
+        values: ["2024-12-31", "December 31, 2024", "Dec 31 2024", "2024/12/31"]
+
+  - id: orders_in_december
+    question: "How many orders were placed in December 2024?"
+    tags: [edge_case, time, filtered]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE EXTRACT(YEAR FROM transaction_date) = 2024
+        AND EXTRACT(MONTH FROM transaction_date) = 12
+    assertions:
+      - type: exact_number
+        value: 1473
+
+  - id: q4_vs_q1_revenue
+    question: "Was Q4 2024 revenue higher or lower than Q1 2024?"
+    tags: [edge_case, time, comparison]
+    verification_sql: >
+      SELECT
+        ROUND(SUM(CASE WHEN EXTRACT(QUARTER FROM transaction_date) = 4 AND EXTRACT(YEAR FROM transaction_date) = 2024 THEN total ELSE 0 END), 2) as q4_revenue,
+        ROUND(SUM(CASE WHEN EXTRACT(QUARTER FROM transaction_date) = 1 AND EXTRACT(YEAR FROM transaction_date) = 2024 THEN total ELSE 0 END), 2) as q1_revenue
+      FROM marts.fct_orders
+    assertions:
+      - type: contains_any
+        values: ["lower", "less", "Q1 was higher", "Q1 higher"]
+
+  # ── Payment Method Tests ─────────────────────────────────────────
+
+  - id: least_popular_payment_method
+    question: "Which payment method is used least frequently?"
+    tags: [edge_case, payment, min]
+    verification_sql: >
+      SELECT payment_method, COUNT(*) as order_count
+      FROM marts.fct_orders
+      GROUP BY payment_method
+      ORDER BY order_count ASC
+      LIMIT 1
+    assertions:
+      - type: contains_any
+        values: ["bank_transfer", "Bank Transfer", "bank transfer"]
+
+  - id: paypal_order_count
+    question: "How many orders were placed using PayPal?"
+    tags: [edge_case, payment, filtered]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE payment_method = 'paypal'
+    assertions:
+      - type: exact_number
+        value: 7172
+
+  - id: credit_card_revenue_share
+    question: "What percentage of total revenue comes from credit card orders?"
+    tags: [edge_case, payment, calculation]
+    verification_sql: >
+      SELECT ROUND(100.0 * SUM(CASE WHEN payment_method = 'credit_card' THEN total ELSE 0 END) / SUM(total), 2) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: approx_number
+        value: 25.0
+        tolerance: 1.0
+
+  # ── Geographic Tests ─────────────────────────────────────────────
+
+  - id: orders_by_state_count
+    question: "How many unique states have customers placed orders from?"
+    tags: [edge_case, geographic, distinct]
+    verification_sql: >
+      SELECT COUNT(DISTINCT customer_state) as answer
+      FROM marts.fct_orders
+      WHERE customer_state IS NOT NULL
+    assertions:
+      - type: exact_number
+        value: 50
+
+  - id: top_city_by_orders
+    question: "Which city has the most orders?"
+    tags: [edge_case, geographic, ranking]
+    verification_sql: >
+      SELECT customer_city, COUNT(*) as order_count
+      FROM marts.fct_orders
+      WHERE customer_city IS NOT NULL
+      GROUP BY customer_city
+      ORDER BY order_count DESC
+      LIMIT 1
+    assertions:
+      - type: contains_any
+        values: ["Houston", "HOUSTON", "houston"]
+
+  - id: lowest_revenue_state
+    question: "Which state has the lowest total revenue?"
+    tags: [edge_case, geographic, min]
+    verification_sql: >
+      SELECT customer_state, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      WHERE customer_state IS NOT NULL
+      GROUP BY customer_state
+      ORDER BY revenue ASC
+      LIMIT 1
+    assertions:
+      - type: contains_any
+        values: ["Wyoming", "WY", "WYOMING"]
