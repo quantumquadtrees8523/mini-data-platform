@@ -82,10 +82,14 @@ def main():
     key_source = "GEMINI_API_KEY" if os.environ.get("GEMINI_API_KEY") else "GOOGLE_API_KEY"
     print(f"  Using key from ${key_source}: {api_key[:8]}...{api_key[-4:]}", file=sys.stderr)
 
+    # --- Vertex AI config (optional) ---
+    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+
     # --- run ---
     dl = DataLayer(db_path)
     try:
-        agent = Agent(dl, api_key, model=args.model)
+        agent = Agent(dl, api_key, model=args.model, project=project, location=location)
         print(f"\n  Analyzing: {args.ask}\n", file=sys.stderr)
         answer = agent.ask(args.ask)
         print(f"\n{answer}")
