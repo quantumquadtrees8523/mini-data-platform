@@ -2,7 +2,7 @@
 
 ```bash
 export GEMINI_API_KEY=your-api-key
-uv run astro
+just agent
 ```
 
 The CLI looks for `warehouse/data.duckdb` in the current directory or up to 6 parent directories.

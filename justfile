@@ -1,5 +1,3 @@
-# Mini Data Platform — run `just` to see all commands
-
 # Sync sources.yml manifest with CSVs on disk
 sync:
     uv run python scripts/sync_sources.py
