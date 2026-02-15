@@ -26,13 +26,13 @@ A CLI agent that answers analytical questions against DuckDB using Gemini functi
 │  • Dispatches tool calls to DataLayer                            │
 │  • Tracks sources for citation                                   │
 │  • Records failed queries for learning                           │
-└─────┬────────────────────┬──────────────────────────┬────────────┘
-      │                    │                          │
-      ▼                    ▼                          ▼
-┌───────────┐      ┌──────────────┐           ┌──────────────────┐
-│ db.py     │      │ Gemini API   │           │ charts.py        │
-│ DataLayer │      │ (external)   │           │ plotext rendering│
-└───────────┘      └──────────────┘           └──────────────────┘
+└─────┬────────────────────┬───────────────────────────────────────┘
+      │                    │
+      ▼                    ▼
+┌───────────┐      ┌──────────────┐
+│ db.py     │      │ Gemini API   │
+│ DataLayer │      │ (external)   │
+└───────────┘      └──────────────┘
 ```
 
 ## Module Responsibilities
@@ -42,7 +42,6 @@ A CLI agent that answers analytical questions against DuckDB using Gemini functi
 | `astro/cli.py` | Entry point. Environment loading, REPL loop |
 | `astro/agent.py` | Gemini orchestration, tool dispatch, conversation state |
 | `astro/db.py` | DuckDB access via `information_schema` introspection |
-| `astro/charts.py` | Terminal chart rendering with plotext |
 | `astro/fmt.py` | ANSI escape codes, prompt styling, answer boxes |
 | `astro/display.py` | Intermediate result display (schema/table/query feedback) |
 
@@ -57,7 +56,6 @@ The agent can call these functions during reasoning:
 | `describe_table` | `schema`, `table` | `[{column, type, nullable}, ...]` |
 | `sample_data` | `schema`, `table`, `limit?` | `{columns, rows}` |
 | `execute_query` | `sql` | `{columns, rows, row_count}` or `{error}` |
-| `create_chart` | `chart_type`, `y_data`, `x_data?`, labels | Renders to stderr |
 
 ## Hardcoded Values
 
@@ -123,7 +121,7 @@ Agent.ask(question)
 ## Output Streams
 
 - **stdout**: Final answer box, sources section
-- **stderr**: All intermediate feedback (schema info, query progress, charts, errors)
+- **stderr**: All intermediate feedback (schema info, query progress, errors)
 
 This separation allows piping answers while keeping progress visible.
 
@@ -131,7 +129,6 @@ This separation allows piping answers while keeping progress visible.
 
 ```
 google-genai>=1.0.0     # Gemini SDK
-plotext>=5.2.8          # Terminal charts
 prompt-toolkit>=3.0.0   # REPL with history
 python-dotenv>=1.0.0    # .env auto-loading
 duckdb                  # Database (also used by rest of platform)
