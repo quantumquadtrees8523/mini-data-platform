@@ -23,6 +23,39 @@ To complete this, fork the repo and build a CLI agent where you can send questio
 
 To submit, send us a fork of your repo. You should modify / create a new README that outlines your approach and where you'd continue building things if you had more time. This should take no more than a few hours.
 
+---
+
+## What Was Added (User / Claude-Generated)
+
+Everything below this line, and the sections it modifies, reflects work done on top of the original repo. The original repo shipped with synthetic data generation scripts, Airflow DAGs (one per source table), dbt models, Evidence dashboards, and a DuckDB warehouse. The following changes were introduced across two pull requests:
+
+### PR 1 — Astro CLI Agent (`astro/`)
+
+Added by the user with Claude assistance. This is the core deliverable: an interactive CLI agent that answers natural language analytical questions against the DuckDB warehouse.
+
+- **`astro/` package** — A Gemini-powered REPL agent with five tools (`list_schemas`, `list_tables`, `describe_table`, `sample_data`, `execute_query`) that introspects the warehouse schema and runs SQL on demand.
+- **`plans/agent-high-level-design.md`** — Architecture documentation covering module responsibilities, tool descriptions, execution flow, and output strategy.
+- **Updated `pyproject.toml`** — Added `google-genai`, `prompt-toolkit`, and `python-dotenv` dependencies.
+- **Added `.env.example`** — Template for the `GEMINI_API_KEY` environment variable.
+
+### PR 2 — Manifest-Driven Data Ingestion
+
+Added by the user with Claude assistance. Replaced the original five per-source ingestion DAGs with a single manifest-driven pipeline and made it trivial to add or remove data sources.
+
+- **`sources/sources.yml`** — A YAML manifest that declares every CSV and its target table.
+- **`scripts/sync_sources.py`** — Auto-discovers CSVs on disk and keeps `sources.yml` in sync.
+- **`airflow/dags/ingest_sources.py`** — Single DAG that reads the manifest and loads all sources into the `raw` schema (replaced the five individual `ingest_*.py` DAGs).
+- **`airflow/utils/warehouse.py`** — Shared DuckDB utility functions.
+- **`plans/data-ingestion-design.md`** — Design document for the manifest-driven ingestion approach.
+- **Three new real-world CSV datasets** added to demonstrate the drop-in workflow:
+  - `sources/postgres/chocolate_sales.csv` (3,283 rows)
+  - `sources/postgres/tmdb_movies.csv` (100 rows)
+  - `sources/salesforce/StudentPerformanceFactors.csv` (6,607 rows)
+- **Updated `justfile`** — Added `just sync`, `just ingest`, `just pipeline`, and other recipes.
+- **Updated `setup.sh`** — Streamlined initialization to use the new pipeline.
+
+---
+
 ## Quick Setup
 
 Run the setup script to initialize everything:
@@ -120,35 +153,51 @@ uv run dbt build --profiles-dir .
 
 ```sh
 mini-data-platform/
+├── astro/                # [ADDED] Gemini-powered CLI agent
+│   ├── agent.py          #   Orchestration, tool dispatch, conversation state
+│   ├── cli.py            #   Entry point and REPL loop
+│   ├── db.py             #   DuckDB DataLayer and schema introspection
+│   ├── display.py        #   Result display formatting
+│   └── fmt.py            #   ANSI terminal formatting utilities
 ├── sources/              # Raw source data (CSV files)
-│   ├── sources.yml       # Source manifest (auto-synced by scripts/sync_sources.py)
-│   ├── postgres/         # Sales, products, users
-│   ├── salesforce/       # Marketing campaigns
-│   └── analytics/        # Page view events
+│   ├── sources.yml       # [ADDED] Source manifest (auto-synced by scripts/sync_sources.py)
+│   ├── postgres/         # products, users, transactions, chocolate_sales, tmdb_movies
+│   ├── salesforce/       # campaigns, StudentPerformanceFactors
+│   └── analytics/        # pageviews
 ├── airflow/
-│   ├── dags/            # Airflow DAGs for ingestion and transformation
-│   │   ├── ingest_sources.py  # Load all manifest sources → raw schema
-│   │   ├── run_dbt.py   # Run dbt staging → marts pipeline
+│   ├── dags/             # Airflow DAGs for ingestion and transformation
+│   │   ├── ingest_sources.py  # [ADDED] Manifest-driven ingestion (replaced 5 per-source DAGs)
+│   │   ├── run_dbt.py    # Run dbt staging → marts pipeline
 │   │   └── build_evidence.py  # Build Evidence dashboards
-│   └── utils/           # Shared utilities
+│   └── utils/            # [ADDED] Shared utilities (warehouse.py)
+├── plans/                # [ADDED] Architecture documentation
+│   ├── agent-high-level-design.md
+│   └── data-ingestion-design.md
+├── scripts/              # Data generation and sync scripts
+│   ├── sync_sources.py   # [ADDED] Auto-sync sources.yml with CSV files on disk
+│   ├── generate_all.py
+│   └── ...               # Per-table generators
 ├── justfile              # Command runner — run `just` to see all recipes
-├── warehouse/           # DuckDB database (data.duckdb)
-├── dbt_project/         # dbt transformations
+├── warehouse/            # DuckDB database (data.duckdb)
+├── dbt_project/          # dbt transformations
 │   └── models/
-│       ├── staging/     # Clean raw data (5 models)
-│       └── marts/       # Analytics-ready tables (3 models)
-├── evidence/            # Evidence BI dashboards
-│   ├── pages/           # Dashboard pages (index, sales, products, customers)
-│   └── sources/         # SQL queries and connection
-└── scripts/             # Data generation scripts
+│       ├── staging/      # Clean raw data (5 models)
+│       └── marts/        # Analytics-ready tables (3 models)
+├── evidence/             # Evidence BI dashboards
+│   ├── pages/            # Dashboard pages (index, sales, products, customers)
+│   └── sources/          # SQL queries and connection
+└── .env.example          # [ADDED] Template for GEMINI_API_KEY
 ```
+
+> Items marked **[ADDED]** were introduced in the two PRs described above and are not part of the original repo.
 
 ## Data Pipeline
 
 ### Raw Layer (`raw` schema)
 
 - Loaded by `ingest_sources` DAG from `sources/sources.yml` manifest
-- 5 tables: products, users, transactions, campaigns, pageviews
+- 8 tables: products, users, transactions, campaigns, pageviews, chocolate_sales, tmdb_movies, StudentPerformanceFactors
+- The last 3 tables were added in PR 2 to demonstrate the drop-in CSV workflow
 
 ### Staging Layer (`staging` schema)
 
@@ -166,10 +215,10 @@ mini-data-platform/
 
 ## Data Volumes
 
-- **Raw**: ~93K total rows across 5 tables
-- **Staging**: Same as raw (views)
+- **Raw**: ~103K total rows across 8 tables (original 5 tables ~93K rows + 3 new CSV sources ~10K rows)
+- **Staging**: Same as raw (views — covers original 5 tables only; new sources do not yet have staging models)
 - **Marts**: 5,062 dimension rows + 35,980 fact rows
-- **Database Size**: ~5-10 MB (DuckDB)
+- **Database Size**: ~13 MB (DuckDB)
 
 ## Evidence Dashboards
 
