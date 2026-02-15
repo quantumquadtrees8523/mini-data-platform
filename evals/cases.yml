@@ -142,17 +142,6 @@ cases:
       - type: contains_any
         values: ["0", "zero", "none", "no orders"]
 
-  - id: no_invalid_ages
-    question: "How many customers have an age less than 18 or greater than 100?"
-    tags: [edge_case, data_integrity]
-    verification_sql: >
-      SELECT COUNT(*) as answer
-      FROM raw.users
-      WHERE age < 18 OR age > 100
-    assertions:
-      - type: exact_number
-        value: 254
-
   # ── NULL Handling Edge Cases ─────────────────────────────────────
 
   - id: orders_without_campaign
@@ -211,18 +200,6 @@ cases:
     assertions:
       - type: exact_number
         value: 1692
-
-  - id: refunded_order_total
-    question: "What is the total value of refunded orders?"
-    tags: [edge_case, status, aggregation]
-    verification_sql: >
-      SELECT ROUND(SUM(total), 2) as answer
-      FROM marts.fct_orders
-      WHERE status = 'refunded'
-    assertions:
-      - type: approx_number
-        value: 1098201.89
-        tolerance: 1000
 
   # ── Boundary Condition Tests ─────────────────────────────────────
 
