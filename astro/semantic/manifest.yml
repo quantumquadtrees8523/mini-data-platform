@@ -1,0 +1,538 @@
+# Semantic manifest for the mini data platform.
+# Describes entities, columns, relationships, and metrics so that an
+# AI agent can understand the data warehouse without prior knowledge.
+
+entities:
+  # ── Mart-layer entities (primary analysis targets) ──────────────────
+
+  - name: products
+    schema: marts
+    table: dim_products
+    description: >
+      Product dimension table containing the current catalog of products
+      with pricing, cost, and margin information.  Use this for any
+      product-level analysis such as pricing distribution, margin
+      analysis, or inventory checks.
+    grain: one row per product
+    primary_key: product_id
+    entity_type: dimension
+    columns:
+      - name: product_id
+        semantic_type: key
+        description: Unique product identifier (integer).
+      - name: product_name
+        semantic_type: dimension
+        description: Human-readable product name.
+      - name: brand
+        semantic_type: dimension
+        description: Product manufacturer or brand name.  May be NULL for unbranded items.
+      - name: category
+        semantic_type: dimension
+        description: >
+          High-level product category.  Values include Electronics,
+          Clothing, Home & Kitchen, Sports, and Books.
+      - name: price
+        semantic_type: measure
+        description: Current retail price in USD.
+        format: currency
+      - name: cost
+        semantic_type: measure
+        description: Wholesale unit cost in USD.
+        format: currency
+      - name: margin
+        semantic_type: measure
+        description: Calculated profit margin per unit (price − cost) in USD.
+        format: currency
+      - name: stock_quantity
+        semantic_type: measure
+        description: Current units in inventory.
+      - name: created_at
+        semantic_type: timestamp
+        description: Date the product was first added to the catalog.
+      - name: updated_at
+        semantic_type: timestamp
+        description: Date the product record was last modified.
+
+  - name: customers
+    schema: marts
+    table: dim_customers
+    description: >
+      Customer dimension table with demographics and segmentation.
+      Use this for customer-level analysis such as segment distribution,
+      geographic breakdown, or cohort analysis by signup date.
+    grain: one row per customer
+    primary_key: user_id
+    entity_type: dimension
+    columns:
+      - name: user_id
+        semantic_type: key
+        description: Unique customer identifier (integer).
+      - name: email
+        semantic_type: dimension
+        description: Customer email address.  May be NULL.
+      - name: first_name
+        semantic_type: dimension
+        description: Customer first name.
+      - name: last_name
+        semantic_type: dimension
+        description: Customer last name.
+      - name: city
+        semantic_type: dimension
+        description: City of residence.  May be NULL.
+      - name: state
+        semantic_type: dimension
+        description: US state of residence (two-letter code).  May be NULL.
+      - name: age
+        semantic_type: measure
+        description: Customer age in years (18–100).  NULL if unknown or invalid.
+      - name: customer_segment
+        semantic_type: dimension
+        description: >
+          Behavioral segment assigned to the customer.  Values: high_value,
+          medium_value, low_value, churned.
+      - name: created_at
+        semantic_type: timestamp
+        description: Date the customer account was created.
+      - name: last_login
+        semantic_type: timestamp
+        description: Most recent login timestamp.
+
+  - name: orders
+    schema: marts
+    table: fct_orders
+    description: >
+      Fact table of order line items with denormalized customer, product,
+      and campaign attributes.  This is the primary table for revenue,
+      sales volume, margin, and marketing-attribution analysis.  Each
+      row is one line item in a transaction (a single transaction can
+      have multiple line items for different products).
+    grain: one row per order line item
+    primary_key: null  # composite: transaction_id + product_id
+    entity_type: fact
+    columns:
+      # -- Order identifiers
+      - name: transaction_id
+        semantic_type: key
+        description: >
+          Order identifier.  NOT unique per row — multiple line items
+          share the same transaction_id when a customer buys several
+          products in one order.
+      - name: transaction_date
+        semantic_type: timestamp
+        description: Date the order was placed.
+      - name: status
+        semantic_type: dimension
+        description: >
+          Order status.  Values: completed (~90%), cancelled (~5%),
+          refunded (~3%), pending (~2%).
+      - name: payment_method
+        semantic_type: dimension
+        description: >
+          Payment method used.  Values include credit_card, debit_card,
+          paypal, bank_transfer, crypto.  May be NULL.
+
+      # -- Customer attributes (denormalized from dim_customers)
+      - name: user_id
+        semantic_type: key
+        description: Foreign key to customers.
+      - name: customer_email
+        semantic_type: dimension
+        description: Customer email (denormalized).
+      - name: customer_first_name
+        semantic_type: dimension
+        description: Customer first name (denormalized).
+      - name: customer_last_name
+        semantic_type: dimension
+        description: Customer last name (denormalized).
+      - name: customer_segment
+        semantic_type: dimension
+        description: Customer behavioral segment (denormalized).
+      - name: customer_city
+        semantic_type: dimension
+        description: Customer city (denormalized).
+      - name: customer_state
+        semantic_type: dimension
+        description: Customer US state (denormalized).
+
+      # -- Product attributes (denormalized from dim_products)
+      - name: product_id
+        semantic_type: key
+        description: Foreign key to products.
+      - name: product_name
+        semantic_type: dimension
+        description: Product name (denormalized).
+      - name: brand
+        semantic_type: dimension
+        description: Product brand (denormalized).
+      - name: category
+        semantic_type: dimension
+        description: Product category (denormalized).
+      - name: product_cost
+        semantic_type: measure
+        description: Wholesale unit cost at time of order (denormalized).
+        format: currency
+
+      # -- Line-item financials
+      - name: quantity
+        semantic_type: measure
+        description: Number of units purchased in this line item.
+      - name: unit_price
+        semantic_type: measure
+        description: Retail price per unit at time of purchase.
+        format: currency
+      - name: subtotal
+        semantic_type: measure
+        description: Line subtotal before tax, shipping, and discount (quantity × unit_price).
+        format: currency
+      - name: tax
+        semantic_type: measure
+        description: Tax amount for this line item.
+        format: currency
+      - name: shipping
+        semantic_type: measure
+        description: Shipping charge for this line item.
+        format: currency
+      - name: discount
+        semantic_type: measure
+        description: Discount amount applied.  Zero if no discount.
+        format: currency
+      - name: discount_code
+        semantic_type: dimension
+        description: Promotional discount code used, if any.
+      - name: total
+        semantic_type: measure
+        description: Final line-item total (subtotal + tax + shipping − discount).
+        format: currency
+      - name: line_margin
+        semantic_type: measure
+        description: Profit on this line item (total − product_cost × quantity).
+        format: currency
+      - name: is_discounted
+        semantic_type: dimension
+        description: Boolean flag — true when a discount was applied.
+
+      # -- Campaign attribution
+      - name: campaign_id
+        semantic_type: key
+        description: Foreign key to campaigns.  NULL if the order was not attributed to a campaign.
+      - name: campaign_name
+        semantic_type: dimension
+        description: Marketing campaign name (denormalized).
+      - name: campaign_type
+        semantic_type: dimension
+        description: Campaign type (denormalized).
+      - name: campaign_platform
+        semantic_type: dimension
+        description: Ad platform (denormalized).
+      - name: campaign_spend
+        semantic_type: measure
+        description: Total actual spend on the attributed campaign (denormalized).
+        format: currency
+
+      - name: created_at
+        semantic_type: timestamp
+        description: Row creation timestamp.
+
+  # ── Staging-layer entities (cleaned source data) ────────────────────
+
+  - name: staged_campaigns
+    schema: staging
+    table: stg_campaigns
+    description: >
+      Cleaned marketing campaign data from Salesforce.  Use this for
+      campaign-level analysis such as budget vs. spend, click-through
+      rates, or platform performance.  Impressions and clicks have been
+      sanitized (no negatives, clicks capped at impressions).
+    grain: one row per campaign
+    primary_key: campaign_id
+    entity_type: dimension
+    columns:
+      - name: campaign_id
+        semantic_type: key
+        description: Unique campaign identifier.
+      - name: campaign_name
+        semantic_type: dimension
+        description: Human-readable campaign name.
+      - name: campaign_type
+        semantic_type: dimension
+        description: >
+          Campaign type.  Values: Social Media, Search, Display, Email,
+          Video, Influencer.
+      - name: platform
+        semantic_type: dimension
+        description: >
+          Advertising platform.  Values include Google Ads, Facebook,
+          Instagram, TikTok, YouTube, LinkedIn, Twitter, Email.
+      - name: product_id
+        semantic_type: key
+        description: Product being promoted (foreign key to products).
+      - name: start_date
+        semantic_type: timestamp
+        description: Campaign start date.
+      - name: end_date
+        semantic_type: timestamp
+        description: Campaign end date.
+      - name: budget
+        semantic_type: measure
+        description: Planned campaign budget in USD.
+        format: currency
+      - name: actual_spend
+        semantic_type: measure
+        description: Actual amount spent in USD.  May be NULL.
+        format: currency
+      - name: impressions
+        semantic_type: measure
+        description: Number of ad impressions served.
+      - name: clicks
+        semantic_type: measure
+        description: Number of ad clicks (always ≤ impressions after cleaning).
+      - name: created_at
+        semantic_type: timestamp
+        description: Record creation timestamp.
+
+  - name: staged_pageviews
+    schema: staging
+    table: stg_pageviews
+    description: >
+      Cleaned web analytics events.  Use this for page-level traffic
+      analysis, session metrics, device/browser breakdowns, and
+      campaign-attributed web engagement.
+    grain: one row per pageview event
+    primary_key: event_id
+    entity_type: fact
+    columns:
+      - name: event_id
+        semantic_type: key
+        description: Unique event identifier.
+      - name: event_time
+        semantic_type: timestamp
+        description: Timestamp of the pageview event.
+      - name: user_id
+        semantic_type: key
+        description: Visitor user ID (foreign key to customers).  May be NULL for anonymous visits.
+      - name: session_id
+        semantic_type: key
+        description: Session identifier grouping consecutive page views.
+      - name: page_type
+        semantic_type: dimension
+        description: >
+          Type of page viewed.  Values include home, product, category,
+          search, cart, checkout, account.
+      - name: product_id
+        semantic_type: key
+        description: Product viewed (foreign key to products).  NULL for non-product pages.
+      - name: campaign_id
+        semantic_type: key
+        description: Attributed campaign (foreign key).  NULL if not campaign-driven.
+      - name: device
+        semantic_type: dimension
+        description: Device type (desktop, mobile, tablet).  May be NULL.
+      - name: browser
+        semantic_type: dimension
+        description: Browser name (Chrome, Safari, Firefox, Edge).  May be NULL.
+      - name: session_duration_seconds
+        semantic_type: measure
+        description: Total session duration in seconds.
+
+# ── Relationships ─────────────────────────────────────────────────────
+
+relationships:
+  - name: order_customer
+    from_entity: orders
+    from_column: user_id
+    to_entity: customers
+    to_column: user_id
+    cardinality: many_to_one
+    description: Each order line item belongs to one customer.
+
+  - name: order_product
+    from_entity: orders
+    from_column: product_id
+    to_entity: products
+    to_column: product_id
+    cardinality: many_to_one
+    description: Each order line item references one product.
+
+  - name: order_campaign
+    from_entity: orders
+    from_column: campaign_id
+    to_entity: staged_campaigns
+    to_column: campaign_id
+    cardinality: many_to_one
+    description: An order may be attributed to a marketing campaign.
+
+  - name: campaign_product
+    from_entity: staged_campaigns
+    from_column: product_id
+    to_entity: products
+    to_column: product_id
+    cardinality: many_to_one
+    description: Each campaign promotes one product.
+
+  - name: pageview_customer
+    from_entity: staged_pageviews
+    from_column: user_id
+    to_entity: customers
+    to_column: user_id
+    cardinality: many_to_one
+    description: A pageview may be linked to a known customer.
+
+  - name: pageview_product
+    from_entity: staged_pageviews
+    from_column: product_id
+    to_entity: products
+    to_column: product_id
+    cardinality: many_to_one
+    description: A pageview may be on a specific product page.
+
+  - name: pageview_campaign
+    from_entity: staged_pageviews
+    from_column: campaign_id
+    to_entity: staged_campaigns
+    to_column: campaign_id
+    cardinality: many_to_one
+    description: A pageview may be attributed to a campaign click.
+
+# ── Metrics ───────────────────────────────────────────────────────────
+# Pre-defined calculations the agent can reference by name.
+
+metrics:
+  - name: total_revenue
+    entity: orders
+    description: Total revenue across all completed orders.
+    sql: "SUM(total) FILTER (WHERE status = 'completed')"
+    format: currency
+
+  - name: total_orders
+    entity: orders
+    description: Count of distinct completed orders (transactions).
+    sql: "COUNT(DISTINCT transaction_id) FILTER (WHERE status = 'completed')"
+
+  - name: average_order_value
+    entity: orders
+    description: Average total per completed order.
+    sql: >
+      SUM(total) FILTER (WHERE status = 'completed')
+      / NULLIF(COUNT(DISTINCT transaction_id) FILTER (WHERE status = 'completed'), 0)
+    format: currency
+
+  - name: total_units_sold
+    entity: orders
+    description: Total product units sold in completed orders.
+    sql: "SUM(quantity) FILTER (WHERE status = 'completed')"
+
+  - name: gross_margin
+    entity: orders
+    description: Total profit across completed orders.
+    sql: "SUM(line_margin) FILTER (WHERE status = 'completed')"
+    format: currency
+
+  - name: margin_percent
+    entity: orders
+    description: Gross margin as a percentage of revenue.
+    sql: >
+      100.0 * SUM(line_margin) FILTER (WHERE status = 'completed')
+      / NULLIF(SUM(total) FILTER (WHERE status = 'completed'), 0)
+    format: percent
+
+  - name: discount_rate
+    entity: orders
+    description: Percentage of line items that received a discount.
+    sql: "100.0 * AVG(CASE WHEN is_discounted THEN 1 ELSE 0 END)"
+    format: percent
+
+  - name: cancellation_rate
+    entity: orders
+    description: Percentage of orders that were cancelled.
+    sql: >
+      100.0 * COUNT(DISTINCT transaction_id) FILTER (WHERE status = 'cancelled')
+      / NULLIF(COUNT(DISTINCT transaction_id), 0)
+    format: percent
+
+  - name: refund_rate
+    entity: orders
+    description: Percentage of orders that were refunded.
+    sql: >
+      100.0 * COUNT(DISTINCT transaction_id) FILTER (WHERE status = 'refunded')
+      / NULLIF(COUNT(DISTINCT transaction_id), 0)
+    format: percent
+
+  - name: campaign_roas
+    entity: orders
+    description: >
+      Return on ad spend — revenue attributed to campaigns divided by
+      campaign spend.  Only meaningful when grouped by campaign.
+    sql: >
+      SUM(total) FILTER (WHERE campaign_id IS NOT NULL AND status = 'completed')
+      / NULLIF(SUM(DISTINCT campaign_spend) FILTER (WHERE campaign_id IS NOT NULL), 0)
+
+  - name: click_through_rate
+    entity: staged_campaigns
+    description: Campaign click-through rate (clicks / impressions × 100).
+    sql: "100.0 * SUM(clicks) / NULLIF(SUM(impressions), 0)"
+    format: percent
+
+  - name: cost_per_click
+    entity: staged_campaigns
+    description: Average cost per click across campaigns.
+    sql: "SUM(actual_spend) / NULLIF(SUM(clicks), 0)"
+    format: currency
+
+  - name: total_pageviews
+    entity: staged_pageviews
+    description: Total number of pageview events.
+    sql: "COUNT(*)"
+
+  - name: unique_visitors
+    entity: staged_pageviews
+    description: Count of distinct known visitors.
+    sql: "COUNT(DISTINCT user_id)"
+
+  - name: avg_session_duration
+    entity: staged_pageviews
+    description: Average session duration in seconds.
+    sql: "AVG(session_duration_seconds)"
+
+# ── Suggested analyses ────────────────────────────────────────────────
+# Hints the agent can use to proactively suggest relevant questions.
+
+suggested_analyses:
+  - question: What is the total revenue by product category?
+    entities: [orders]
+    dimensions: [category]
+    metrics: [total_revenue]
+
+  - question: Which customer segments generate the most revenue?
+    entities: [orders]
+    dimensions: [customer_segment]
+    metrics: [total_revenue, total_orders, average_order_value]
+
+  - question: What are the top 10 products by units sold?
+    entities: [orders]
+    dimensions: [product_name]
+    metrics: [total_units_sold, total_revenue]
+
+  - question: How does revenue trend over time?
+    entities: [orders]
+    dimensions: [transaction_date]
+    metrics: [total_revenue, total_orders]
+
+  - question: Which marketing campaigns have the best return on ad spend?
+    entities: [orders, staged_campaigns]
+    dimensions: [campaign_name, campaign_type]
+    metrics: [total_revenue, campaign_roas]
+
+  - question: What is the geographic distribution of customers?
+    entities: [customers]
+    dimensions: [state, city]
+    metrics: []
+
+  - question: Which devices and browsers drive the most traffic?
+    entities: [staged_pageviews]
+    dimensions: [device, browser]
+    metrics: [total_pageviews, unique_visitors]
+
+  - question: What is the conversion funnel from pageview to purchase?
+    entities: [staged_pageviews, orders]
+    dimensions: [page_type]
+    metrics: [total_pageviews, total_orders]
