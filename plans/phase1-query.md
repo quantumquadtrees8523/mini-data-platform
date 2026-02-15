@@ -19,9 +19,10 @@ $ astro                        # interactive chat (or --ask for first question)
     ├──┤ describe_table(s, t) │──▶ DataLayer ──▶ DuckDB
     ├──┤ sample_data(s, t, n) │
     ├──┤ execute_query(sql)   │
+    ├──┤ create_chart(type,…) │
     │  ╰──────────────────────╯
     ▼
-  Answer (stdout) ──► back to astro> prompt
+  Answer + Sources (stdout) ──► back to astro> prompt
 ```
 
 ## Files Created
@@ -29,7 +30,9 @@ $ astro                        # interactive chat (or --ask for first question)
 | File | Purpose |
 |------|---------|
 | `astro/__init__.py` | Package marker |
-| `astro/fmt.py` | Terminal formatting — ANSI colors, banner, styled prompts (no external deps) |
+| `astro/fmt.py` | Terminal formatting — ANSI colors, banner, styled prompts, sources footer |
+| `astro/display.py` | Intermediate result rendering — tables, schema lists, query results on stderr |
+| `astro/charts.py` | Terminal chart rendering via plotext (bar, line, scatter, histogram) |
 | `astro/cli.py` | CLI entry point — parses args, runs optional `--ask`, then enters interactive REPL |
 | `astro/db.py` | `DataLayer` class — generic DuckDB introspection and query execution |
 | `astro/agent.py` | `Agent` class — Gemini function-calling loop with persistent conversation history |
@@ -54,6 +57,15 @@ The agent maintains `_contents` (the full Gemini conversation) as instance state
 - Query error memory also persists across questions in the same session.
 
 The CLI runs an `astro>` REPL after startup. `--ask` is optional — if provided, that question is answered first, then the REPL continues. Ctrl-C during a query cancels it without killing the session; Ctrl-C/Ctrl-D at the prompt exits.
+
+### Terminal charts (plotext)
+The agent has a `create_chart` tool it can call after running a query. The system prompt instructs the model to create charts when results have a clear categorical dimension and a numerical measure. Chart types: bar, line, scatter, histogram. Charts render to stderr via `plotext.build()` (returns a string) so they don't pollute the stdout answer stream.
+
+### Intermediate result display
+Every tool call displays its results to the user on stderr as the agent works — schema lists, table listings with row counts, column definitions, and formatted query result tables. This gives the user visibility into what the agent is doing without waiting for the final answer. All intermediate output uses `fmt.DIM` styling to stay visually recessive.
+
+### Source citations
+The agent tracks which tables and queries were used during each question (`Agent._current_sources`). After the answer, the CLI prints a "Sources" footer showing deduplicated table names and numbered SQL queries with row counts. Sources reset per `ask()` call. The tracking is automatic (built into `_execute_tool()`), not dependent on the model.
 
 ### Query error memory
 When an `execute_query` call fails (SQL error, DuckDB exception, etc.), the agent records the failed SQL and error message in an in-memory list (`Agent._query_errors`). On every subsequent LLM call, `_build_system_prompt()` appends these past errors to the system prompt under a "Previous Query Errors" section. This lets the model see exactly which queries failed and why, so it avoids repeating the same mistakes (wrong column names, bad syntax, etc.) without consuming extra tool-call turns.
@@ -80,6 +92,7 @@ The CLI auto-loads a `.env` file from the project root via `python-dotenv`.
 
 ## Dependencies Added
 - `google-genai>=1.0.0` (Gemini SDK)
+- `plotext>=5.2.8` (terminal charts)
 - `python-dotenv>=1.0.0` (auto-load `.env`)
 - `hatchling` (build backend, for `project.scripts` to register the `astro` CLI)
 
@@ -89,6 +102,9 @@ The CLI auto-loads a `.env` file from the project root via `python-dotenv`.
 - [x] Gemini agent with tool-calling loop
 - [x] CLI entry point with interactive REPL (`astro` / `astro --ask`)
 - [x] Data layer smoke tested against warehouse
+- [x] Terminal charts via plotext (`create_chart` tool)
+- [x] Source citations after answers
+- [x] Intermediate result display on stderr
 - [ ] End-to-end test with live Gemini API
 
 ## What This Does NOT Do (deferred to later phases)

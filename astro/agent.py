@@ -9,6 +9,8 @@ from google.genai import types
 
 from astro.db import DataLayer
 from astro import fmt
+from astro import display
+from astro.charts import render_chart
 
 SYSTEM_PROMPT = """\
 You are a data analyst agent with access to a DuckDB data warehouse.
@@ -20,7 +22,8 @@ Your job is to answer user questions by exploring the schema and running SQL que
 3. Describe table columns to understand the data model.
 4. Optionally sample a few rows to see real values.
 5. Write and execute SQL to answer the question.
-6. Return a clear, concise natural-language answer with key numbers.
+6. If the result contains numerical data suitable for visualization, create a chart.
+7. Return a clear, concise natural-language answer with key numbers.
 
 ## Rules
 - Always explore the schema first. Never assume table or column names.
@@ -28,6 +31,8 @@ Your job is to answer user questions by exploring the schema and running SQL que
 - If a query errors, read the message, adjust, and retry.
 - Format numbers for readability (commas, 2 decimal places for money).
 - If the data cannot answer the question, say so clearly.
+- When query results have a clear categorical dimension and a numerical measure \
+(e.g. revenue by region, counts by status), call create_chart to visualize them.
 """
 
 MAX_TURNS = 25
@@ -94,6 +99,36 @@ TOOL_DECLARATIONS = [
             "required": ["sql"],
         },
     },
+    {
+        "name": "create_chart",
+        "description": (
+            "Create a terminal chart to visualize query results. "
+            "Call this after executing a query that returns data suitable for plotting."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "chart_type": {
+                    "type": "string",
+                    "enum": ["bar", "line", "scatter", "histogram"],
+                    "description": "Type of chart.",
+                },
+                "x_data": {
+                    "type": "array",
+                    "description": "X-axis values (labels or numbers).",
+                },
+                "y_data": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "Y-axis numerical values.",
+                },
+                "x_label": {"type": "string", "description": "X-axis label."},
+                "y_label": {"type": "string", "description": "Y-axis label."},
+                "title": {"type": "string", "description": "Chart title."},
+            },
+            "required": ["chart_type", "y_data"],
+        },
+    },
 ]
 
 
@@ -121,6 +156,7 @@ class Agent:
         self._query_errors: list[dict[str, str]] = []
         self._contents: list[types.Content] = []
         self._tools = [types.Tool(function_declarations=TOOL_DECLARATIONS)]
+        self._current_sources: list[dict] = []
         self._preflight()
 
     def _preflight(self):
@@ -144,6 +180,8 @@ class Agent:
 
     def ask(self, question: str) -> str:
         """Append a user question and run the tool-calling loop until an answer."""
+        self._current_sources = []
+
         self._contents.append(
             types.Content(
                 role="user",
@@ -186,6 +224,10 @@ class Agent:
             self._contents.append(types.Content(parts=response_parts))
 
         return "(Agent reached maximum turns without a final answer. Try a more specific question.)"
+
+    def get_sources(self) -> list[dict]:
+        """Return sources collected during the last ask() call."""
+        return self._current_sources
 
     def _record_query_error(self, sql: str, error: str):
         """Store a failed query so the model can learn from past mistakes."""
@@ -245,26 +287,69 @@ class Agent:
         raise RuntimeError("Max retries exceeded for Gemini API call")
 
     def _execute_tool(self, name: str, args: dict):
-        """Dispatch a tool call to the data layer."""
+        """Dispatch a tool call to the data layer and display results."""
         _print_step(name, args)
 
         try:
             match name:
                 case "list_schemas":
-                    return self.dl.list_schemas()
+                    result = self.dl.list_schemas()
+                    display.show_schemas(result)
+                    return result
+
                 case "list_tables":
-                    return self.dl.list_tables(args["schema"])
+                    result = self.dl.list_tables(args["schema"])
+                    display.show_tables(result, args["schema"])
+                    self._current_sources.append({
+                        "type": "table_discovery",
+                        "table": f"{args['schema']}.*",
+                    })
+                    return result
+
                 case "describe_table":
-                    return self.dl.describe_table(args["schema"], args["table"])
+                    result = self.dl.describe_table(args["schema"], args["table"])
+                    display.show_columns(result, args["schema"], args["table"])
+                    self._current_sources.append({
+                        "type": "schema_inspection",
+                        "table": f"{args['schema']}.{args['table']}",
+                    })
+                    return result
+
                 case "sample_data":
-                    return self.dl.sample_data(
+                    result = self.dl.sample_data(
                         args["schema"], args["table"], args.get("limit", 5)
                     )
+                    display.show_data(result.get("columns", []), result.get("rows", []))
+                    self._current_sources.append({
+                        "type": "data_sample",
+                        "table": f"{args['schema']}.{args['table']}",
+                    })
+                    return result
+
                 case "execute_query":
                     result = self.dl.execute_query(args["sql"])
                     if isinstance(result, dict) and "error" in result:
                         self._record_query_error(args["sql"], result["error"])
+                    else:
+                        display.show_query_result(result)
+                        self._current_sources.append({
+                            "type": "query",
+                            "sql": args["sql"],
+                            "row_count": result.get("row_count", 0),
+                        })
                     return result
+
+                case "create_chart":
+                    render_chart(
+                        chart_type=args["chart_type"],
+                        x_data=args.get("x_data", []),
+                        y_data=args["y_data"],
+                        x_label=args.get("x_label", ""),
+                        y_label=args.get("y_label", ""),
+                        title=args.get("title", ""),
+                    )
+                    return {"success": True, "message": "Chart displayed to user."}
+
                 case _:
                     return {"error": f"Unknown tool: {name}"}
         except Exception as e:
@@ -291,3 +376,5 @@ def _print_step(tool_name: str, args: dict):
             _log(fmt.step("~", f"Sampling data from {args['schema']}.{args['table']}..."))
         case "execute_query":
             _log(fmt.step_sql(args.get("sql", "")))
+        case "create_chart":
+            _log(fmt.step("~", f"Creating {args.get('chart_type', '')} chart..."))

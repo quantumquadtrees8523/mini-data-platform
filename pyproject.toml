@@ -9,6 +9,7 @@ dependencies = [
     "dbt-duckdb>=1.10.0",
     "duckdb>=1.4.1",
     "google-genai>=1.0.0",
+    "plotext>=5.2.8",
     "python-dotenv>=1.0.0",
 ]
 

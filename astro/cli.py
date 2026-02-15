@@ -58,7 +58,9 @@ def _chat_loop(agent: Agent):
         print(file=sys.stderr)
         try:
             answer = agent.ask(question)
-            print(f"{fmt.answer_header()}{answer}\n")
+            print(f"{fmt.answer_header()}{answer}")
+            print(fmt.sources_section(agent.get_sources()))
+            print()
         except KeyboardInterrupt:
             print(
                 f"\n  {fmt.DIM}(interrupted — ask another question or 'quit'){fmt.RESET}\n",
@@ -132,7 +134,9 @@ def main():
                 file=sys.stderr,
             )
             answer = agent.ask(args.ask)
-            print(f"{fmt.answer_header()}{answer}\n")
+            print(f"{fmt.answer_header()}{answer}")
+            print(fmt.sources_section(agent.get_sources()))
+            print()
 
         # Drop into interactive chat
         _chat_loop(agent)

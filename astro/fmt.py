@@ -63,5 +63,32 @@ def prompt() -> str:
     return "astro> "
 
 
+def sources_section(sources: list[dict]) -> str:
+    """Format a Sources footer from collected tool-call metadata."""
+    if not sources:
+        return ""
+
+    tables = sorted(
+        {s["table"] for s in sources if "table" in s},
+    )
+    queries = [s for s in sources if s.get("type") == "query"]
+
+    lines = [f"{DIM}{'─' * 52}{RESET}", f"{BOLD}Sources{RESET}"]
+
+    if tables:
+        lines.append(f"  {DIM}Tables:{RESET} {', '.join(tables)}")
+
+    if queries:
+        lines.append(f"  {DIM}Queries:{RESET}")
+        for i, q in enumerate(queries, 1):
+            sql = q.get("sql", "")
+            preview = sql if len(sql) <= 80 else sql[:77] + "..."
+            rows = q.get("row_count", "?")
+            lines.append(f"    {DIM}{i}. {CYAN}{preview}{RESET}")
+            lines.append(f"       {DIM}{rows} row(s){RESET}")
+
+    return "\n".join(lines)
+
+
 def bye() -> str:
     return f"\n{DIM}Bye!{RESET}"
