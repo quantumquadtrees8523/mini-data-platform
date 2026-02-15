@@ -26,6 +26,7 @@ This document outlines directions for continued development of the Mini Data Pla
 
 ## Evals
 - A more comprehensive set of evals testing a broader range of edge cases.
+- Some agent evaluations are flapping a bit and need to be more thoroughly ironed out.
 
 ## References
 

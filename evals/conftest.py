@@ -68,7 +68,7 @@ def agent(data_layer, api_key):
     """
     from astro.agent import Agent
 
-    return Agent(data_layer, api_key, model="gemini-2.0-flash")
+    return Agent(data_layer, api_key, model="gemini-3.0-flash")
 
 
 @pytest.fixture(scope="session")

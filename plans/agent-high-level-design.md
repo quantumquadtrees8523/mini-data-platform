@@ -61,7 +61,7 @@ The agent can call these functions during reasoning:
 
 | What | Value | Location |
 |------|-------|----------|
-| Model | `gemini-2.0-flash` | `cli.py:113` |
+| Model | `gemini-3.0-flash` | `cli.py:113` |
 | Max tool-call turns | 25 | `agent.py:38` |
 | Max API retries | 3 | `agent.py:39` |
 | Query row limit | 100 | `db.py:100` |
