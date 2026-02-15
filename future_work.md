@@ -24,6 +24,9 @@ This document outlines directions for continued development of the Mini Data Pla
   - Intelligent DFS (depth-first search) for an agent to make sense of data using a semantic layer.
   - OLAP engines like BigQuery or Redshift for handling analytical workloads at scale.
 
+## Evals
+- A more comprehensive set of evals testing a broader range of edge cases.
+
 ## References
 
 - [Inside Our In-House Data Agent](https://openai.com/index/inside-our-in-house-data-agent/) — This document was used as a meaningful source of inspiration and reference.

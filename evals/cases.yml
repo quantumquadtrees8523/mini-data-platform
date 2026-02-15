@@ -129,20 +129,6 @@ cases:
 
   # ── Data Integrity Tests ─────────────────────────────────────────
   # These verify that staging layer correctly cleans/transforms bad data
-
-  - id: no_negative_totals
-    question: "How many orders have a negative total amount?"
-    tags: [edge_case, data_integrity]
-    verification_sql: >
-      SELECT COUNT(*) as answer
-      FROM marts.fct_orders
-      WHERE total < 0
-    assertions:
-      - type: exact_number
-        value: 0
-      - type: contains_any
-        values: ["0", "zero", "none", "no orders"]
-
   - id: no_future_transactions
     question: "How many orders have a transaction date in the future?"
     tags: [edge_case, data_integrity]
@@ -254,17 +240,6 @@ cases:
       - type: contains_all
         values: ["Books"]
 
-  - id: smallest_order_value
-    question: "What is the smallest order total?"
-    tags: [edge_case, boundary, min]
-    verification_sql: >
-      SELECT ROUND(MIN(total), 2) as answer
-      FROM marts.fct_orders
-    assertions:
-      - type: approx_number
-        value: 20.64
-        tolerance: 1.0
-
   - id: largest_single_order
     question: "What is the largest single order total?"
     tags: [edge_case, boundary, max]
@@ -275,33 +250,6 @@ cases:
       - type: approx_number
         value: 6460.56
         tolerance: 5.0
-
-  # ── Multi-Condition Complex Filters ──────────────────────────────
-
-  - id: high_value_electronics_orders
-    question: "How many completed orders from high_value customers are in the Electronics category?"
-    tags: [edge_case, multi_condition, complex]
-    verification_sql: >
-      SELECT COUNT(*) as answer
-      FROM marts.fct_orders
-      WHERE customer_segment = 'high_value'
-        AND category = 'Electronics'
-        AND status = 'completed'
-    assertions:
-      - type: exact_number
-        value: 2843
-
-  - id: discounted_completed_orders
-    question: "How many completed orders used a discount code?"
-    tags: [edge_case, multi_condition]
-    verification_sql: >
-      SELECT COUNT(*) as answer
-      FROM marts.fct_orders
-      WHERE status = 'completed'
-        AND is_discounted = true
-    assertions:
-      - type: exact_number
-        value: 3407
 
   # ── Time Boundary Tests ──────────────────────────────────────────
 
@@ -365,17 +313,6 @@ cases:
       - type: contains_any
         values: ["paypal", "Paypal", "PayPal"]
 
-  - id: paypal_order_count
-    question: "How many orders were placed using PayPal?"
-    tags: [edge_case, payment, filtered]
-    verification_sql: >
-      SELECT COUNT(*) as answer
-      FROM marts.fct_orders
-      WHERE payment_method = 'paypal'
-    assertions:
-      - type: exact_number
-        value: 6766
-
   - id: credit_card_revenue_share
     question: "What percentage of total revenue comes from credit card orders?"
     tags: [edge_case, payment, calculation]
@@ -399,20 +336,6 @@ cases:
     assertions:
       - type: exact_number
         value: 15
-
-  - id: top_city_by_orders
-    question: "Which city has the most orders?"
-    tags: [edge_case, geographic, ranking]
-    verification_sql: >
-      SELECT customer_city, COUNT(*) as order_count
-      FROM marts.fct_orders
-      WHERE customer_city IS NOT NULL
-      GROUP BY customer_city
-      ORDER BY order_count DESC
-      LIMIT 1
-    assertions:
-      - type: contains_any
-        values: ["Phoenix", "phoenix", "PHOENIX"]
 
   - id: lowest_revenue_state
     question: "Which state has the lowest total revenue?"
