@@ -5,8 +5,23 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from astro.db import DataLayer
 from astro.agent import Agent
+
+
+def _find_env() -> Path | None:
+    """Walk up from CWD looking for .env."""
+    current = Path.cwd()
+    for _ in range(6):
+        candidate = current / ".env"
+        if candidate.exists():
+            return candidate
+        if current.parent == current:
+            break
+        current = current.parent
+    return None
 
 
 def _find_warehouse() -> Path | None:
@@ -43,6 +58,11 @@ def main():
     )
     args = parser.parse_args()
 
+    # --- load .env from project root ---
+    env_path = _find_env()
+    if env_path:
+        load_dotenv(env_path)
+
     # --- resolve database ---
     if args.db:
         db_path = Path(args.db)
@@ -58,6 +78,9 @@ def main():
     if not api_key:
         print("Error: Set GEMINI_API_KEY or GOOGLE_API_KEY.", file=sys.stderr)
         sys.exit(1)
+    api_key = api_key.strip()
+    key_source = "GEMINI_API_KEY" if os.environ.get("GEMINI_API_KEY") else "GOOGLE_API_KEY"
+    print(f"  Using key from ${key_source}: {api_key[:8]}...{api_key[-4:]}", file=sys.stderr)
 
     # --- run ---
     dl = DataLayer(db_path)

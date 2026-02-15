@@ -101,6 +101,26 @@ class Agent:
         self.dl = data_layer
         self.client = genai.Client(api_key=api_key)
         self.model = model
+        self._preflight()
+
+    def _preflight(self):
+        """Quick auth check before starting the agent loop."""
+        try:
+            self.client.models.generate_content(
+                model=self.model,
+                contents="ping",
+                config=types.GenerateContentConfig(max_output_tokens=1),
+            )
+        except Exception as e:
+            err = str(e)
+            if "401" in err or "UNAUTHENTICATED" in err or "CREDENTIALS_MISSING" in err:
+                raise RuntimeError(
+                    "Authentication failed.\n"
+                    "  1. Get a key from https://aistudio.google.com/apikey\n"
+                    "  2. export GEMINI_API_KEY=<your-key>\n"
+                    "  3. Make sure you're NOT using a Google Cloud Console key."
+                ) from e
+            raise
 
     def ask(self, question: str) -> str:
         """Run the agentic loop: question → tool calls → answer."""
