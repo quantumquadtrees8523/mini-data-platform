@@ -8,6 +8,7 @@ from google import genai
 from google.genai import types
 
 from astro.db import DataLayer
+from astro import fmt
 
 SYSTEM_PROMPT = """\
 You are a data analyst agent with access to a DuckDB data warehouse.
@@ -107,7 +108,7 @@ class Agent:
     ):
         self.dl = data_layer
         if project:
-            _log(f"Using Vertex AI backend (project={project}, location={location or 'us-central1'})")
+            _log(fmt.step("~", f"Using Vertex AI backend (project={project}, location={location or 'us-central1'})"))
             self.client = genai.Client(
                 vertexai=True,
                 project=project,
@@ -189,7 +190,7 @@ class Agent:
     def _record_query_error(self, sql: str, error: str):
         """Store a failed query so the model can learn from past mistakes."""
         self._query_errors.append({"sql": sql, "error": error})
-        _log(f"Recorded query error ({len(self._query_errors)} total)")
+        _log(fmt.warning(f"Query error recorded ({len(self._query_errors)} total)"))
 
     def _build_system_prompt(self) -> str:
         """Build system prompt, appending any accumulated query errors."""
@@ -237,7 +238,7 @@ class Agent:
                 )
                 if retryable and attempt < MAX_RETRIES - 1:
                     wait = 2 ** (attempt + 1)
-                    _log(f"Retryable error ({type(e).__name__}). Waiting {wait}s...")
+                    _log(fmt.warning(f"Retryable error ({type(e).__name__}). Waiting {wait}s..."))
                     time.sleep(wait)
                     continue
                 raise
@@ -267,28 +268,26 @@ class Agent:
                 case _:
                     return {"error": f"Unknown tool: {name}"}
         except Exception as e:
-            _log(f"Tool error: {e}")
+            _log(fmt.error(str(e)))
             if name == "execute_query":
                 self._record_query_error(args.get("sql", ""), str(e))
             return {"error": str(e)}
 
 
 def _log(msg: str):
-    print(f"  {msg}", file=sys.stderr)
+    print(msg, file=sys.stderr)
 
 
 def _print_step(tool_name: str, args: dict):
     """Print agent steps to stderr so the user can follow along."""
     match tool_name:
         case "list_schemas":
-            _log("> Exploring database schemas...")
+            _log(fmt.step("~", "Exploring database schemas..."))
         case "list_tables":
-            _log(f"> Listing tables in '{args['schema']}'...")
+            _log(fmt.step("~", f"Listing tables in '{args['schema']}'..."))
         case "describe_table":
-            _log(f"> Describing {args['schema']}.{args['table']}...")
+            _log(fmt.step("~", f"Describing {args['schema']}.{args['table']}..."))
         case "sample_data":
-            _log(f"> Sampling data from {args['schema']}.{args['table']}...")
+            _log(fmt.step("~", f"Sampling data from {args['schema']}.{args['table']}..."))
         case "execute_query":
-            sql = args.get("sql", "")
-            display = sql if len(sql) <= 120 else sql[:117] + "..."
-            _log(f"> Executing: {display}")
+            _log(fmt.step_sql(args.get("sql", "")))

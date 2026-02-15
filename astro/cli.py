@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from astro.db import DataLayer
 from astro.agent import Agent
+from astro import fmt
 
 
 def _find_env() -> Path | None:
@@ -39,26 +40,33 @@ def _find_warehouse() -> Path | None:
 
 def _chat_loop(agent: Agent):
     """Interactive REPL — read questions from stdin until quit or EOF."""
-    print("\n  Type a question, or 'quit' to exit.\n", file=sys.stderr)
+    print(
+        f"\n  {fmt.DIM}Type a question, or 'quit' to exit.{fmt.RESET}\n",
+        file=sys.stderr,
+    )
     while True:
         try:
-            question = input("astro> ").strip()
+            question = input(fmt.prompt()).strip()
         except (EOFError, KeyboardInterrupt):
-            print("\nBye!", file=sys.stderr)
+            print(fmt.bye(), file=sys.stderr)
             break
         if not question:
             continue
         if question.lower() in ("quit", "exit", "q"):
-            print("Bye!", file=sys.stderr)
+            print(fmt.bye(), file=sys.stderr)
             break
         print(file=sys.stderr)
         try:
             answer = agent.ask(question)
-            print(f"\n{answer}\n")
+            print(f"{fmt.answer_header()}{answer}\n")
         except KeyboardInterrupt:
-            print("\n  (interrupted — ask another question or 'quit')\n", file=sys.stderr)
+            print(
+                f"\n  {fmt.DIM}(interrupted — ask another question or 'quit'){fmt.RESET}\n",
+                file=sys.stderr,
+            )
         except Exception as e:
-            print(f"\n  Error: {e}\n", file=sys.stderr)
+            print(fmt.error(str(e)), file=sys.stderr)
+            print(file=sys.stderr)
 
 
 def main():
@@ -92,18 +100,19 @@ def main():
     else:
         db_path = _find_warehouse()
     if not db_path or not db_path.exists():
-        print("Error: Could not find DuckDB database.", file=sys.stderr)
-        print("  Run from the project root or pass --db <path>.", file=sys.stderr)
+        print(fmt.error("Could not find DuckDB database."), file=sys.stderr)
+        print(
+            f"  {fmt.DIM}Run from the project root or pass --db <path>.{fmt.RESET}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # --- resolve API key ---
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
-        print("Error: Set GEMINI_API_KEY or GOOGLE_API_KEY.", file=sys.stderr)
+        print(fmt.error("Set GEMINI_API_KEY or GOOGLE_API_KEY."), file=sys.stderr)
         sys.exit(1)
     api_key = api_key.strip()
-    key_source = "GEMINI_API_KEY" if os.environ.get("GEMINI_API_KEY") else "GOOGLE_API_KEY"
-    print(f"  Using key from ${key_source}: {api_key[:8]}...{api_key[-4:]}", file=sys.stderr)
 
     # --- Vertex AI config (optional) ---
     project = os.environ.get("GOOGLE_CLOUD_PROJECT")
@@ -112,21 +121,26 @@ def main():
     # --- run ---
     dl = DataLayer(db_path)
     try:
+        print(fmt.banner(str(db_path), args.model), file=sys.stderr)
         agent = Agent(dl, api_key, model=args.model, project=project, location=location)
+        print(fmt.success("Connected."), file=sys.stderr)
 
         # Answer the initial --ask question if provided
         if args.ask:
-            print(f"\n  Analyzing: {args.ask}\n", file=sys.stderr)
+            print(
+                f"\n  {fmt.DIM}Analyzing:{fmt.RESET} {args.ask}\n",
+                file=sys.stderr,
+            )
             answer = agent.ask(args.ask)
-            print(f"\n{answer}\n")
+            print(f"{fmt.answer_header()}{answer}\n")
 
         # Drop into interactive chat
         _chat_loop(agent)
     except KeyboardInterrupt:
-        print("\nBye!", file=sys.stderr)
+        print(fmt.bye(), file=sys.stderr)
         sys.exit(130)
     except Exception as e:
-        print(f"\nError: {e}", file=sys.stderr)
+        print(f"\n{fmt.error(str(e))}", file=sys.stderr)
         sys.exit(1)
     finally:
         dl.close()

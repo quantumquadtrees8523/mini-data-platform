@@ -29,6 +29,7 @@ $ astro                        # interactive chat (or --ask for first question)
 | File | Purpose |
 |------|---------|
 | `astro/__init__.py` | Package marker |
+| `astro/fmt.py` | Terminal formatting — ANSI colors, banner, styled prompts (no external deps) |
 | `astro/cli.py` | CLI entry point — parses args, runs optional `--ask`, then enters interactive REPL |
 | `astro/db.py` | `DataLayer` class — generic DuckDB introspection and query execution |
 | `astro/agent.py` | `Agent` class — Gemini function-calling loop with persistent conversation history |
