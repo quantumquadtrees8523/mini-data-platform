@@ -1,18 +1,8 @@
 # Mini Data Platform
 
-## Installation
-
-Install from PyPI:
-
-```bash
-pip install astro-surya-oss
-```
-
-Then run from any directory with a DuckDB warehouse:
-
 ```bash
 export GEMINI_API_KEY=your-api-key
-surya-astro
+uv run astro
 ```
 
 The CLI looks for `warehouse/data.duckdb` in the current directory or up to 6 parent directories.

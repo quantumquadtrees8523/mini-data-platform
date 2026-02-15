@@ -78,7 +78,7 @@ def _chat_loop(agent: Agent):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="surya-astro",
+        prog="astro",
         description="Query your data warehouse using natural language.",
     )
     parser.parse_args()

@@ -13,6 +13,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
+    "apache-airflow>=3.1.2",
+    "dbt-duckdb>=1.10.0",
     "duckdb>=1.4.1",
     "google-genai>=1.0.0",
     "plotext>=5.2.8",
@@ -28,4 +30,4 @@ build-backend = "hatchling.build"
 packages = ["astro"]
 
 [project.scripts]
-surya-astro = "astro.cli:main"
+astro = "astro.cli:main"
