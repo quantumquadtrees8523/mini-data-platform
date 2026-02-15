@@ -21,6 +21,14 @@ query:
 agent:
     uv run astro
 
+# Run agent evaluation suite (requires GEMINI_API_KEY)
+eval:
+    uv run --extra dev pytest evals/ -v --tb=short
+
+# Run only ground-truth SQL validation (no API key needed)
+eval-sql:
+    uv run --extra dev pytest evals/ -v -k "ground_truth" --tb=short
+
 # Run full setup from scratch (generate data, init Airflow, run pipeline)
 setup:
     ./setup.sh

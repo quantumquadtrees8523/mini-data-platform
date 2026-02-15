@@ -1,0 +1,329 @@
+# Evaluation test cases for the Astro agent.
+#
+# Each case defines a natural-language question, a verification SQL query
+# to compute the ground truth, and assertions to check the agent's answer.
+#
+# Assertion types:
+#   exact_number:   Agent answer must contain this exact integer/float.
+#   approx_number:  Answer must contain a number within `tolerance` of expected.
+#   contains_all:   Answer must contain ALL listed strings (case-insensitive).
+#   contains_any:   Answer must contain AT LEAST ONE listed string.
+#   ordered_list:   Items must appear in the answer in the given order.
+
+cases:
+
+  # ── Simple count ──────────────────────────────────────────────────
+  - id: total_order_count
+    question: "How many orders are in the database?"
+    tags: [simple, count]
+    verification_sql: >
+      SELECT COUNT(*) as answer FROM marts.fct_orders
+    assertions:
+      - type: exact_number
+        value: 35980
+
+  # ── Filtered aggregation ──────────────────────────────────────────
+  - id: revenue_2024
+    question: "What was our total revenue in 2024?"
+    tags: [aggregation, filtered, revenue]
+    verification_sql: >
+      SELECT ROUND(SUM(total), 2) as answer
+      FROM marts.fct_orders
+      WHERE EXTRACT(YEAR FROM transaction_date) = 2024
+    assertions:
+      - type: approx_number
+        value: 18652996.66
+        tolerance: 1000
+      - type: contains_any
+        values: ["18,652,996", "18652996", "18.6 million", "18,653"]
+
+  # ── Top-N ranking ─────────────────────────────────────────────────
+  - id: top_3_categories_by_revenue
+    question: "What are the top 3 product categories by total revenue?"
+    tags: [top_n, ranking, categories]
+    verification_sql: >
+      SELECT category, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      GROUP BY category
+      ORDER BY revenue DESC
+      LIMIT 3
+    assertions:
+      - type: contains_all
+        values: ["Electronics", "Sports", "Home & Garden"]
+      - type: ordered_list
+        values: ["Electronics", "Sports", "Home & Garden"]
+
+  # ── Calculation (average) ─────────────────────────────────────────
+  - id: average_order_value
+    question: "What is the average order value?"
+    tags: [calculation, average]
+    verification_sql: >
+      SELECT ROUND(AVG(total), 2) as answer FROM marts.fct_orders
+    assertions:
+      - type: approx_number
+        value: 1006.25
+        tolerance: 5.0
+      - type: contains_any
+        values: ["1,006", "1006", "$1,006"]
+
+  # ── Segment analysis ──────────────────────────────────────────────
+  - id: top_customer_segment_by_revenue
+    question: "Which customer segment generates the most revenue?"
+    tags: [join, segments]
+    verification_sql: >
+      SELECT customer_segment, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      GROUP BY customer_segment
+      ORDER BY revenue DESC
+      LIMIT 1
+    assertions:
+      - type: contains_all
+        values: ["medium_value"]
+      - type: approx_number
+        value: 14225883.54
+        tolerance: 1000
+
+  # ── Count distinct ────────────────────────────────────────────────
+  - id: unique_customers_with_orders
+    question: "How many unique customers have placed at least one order?"
+    tags: [distinct, customers]
+    verification_sql: >
+      SELECT COUNT(DISTINCT user_id) as answer FROM marts.fct_orders
+    assertions:
+      - type: exact_number
+        value: 4409
+
+  # ── Filtered count ────────────────────────────────────────────────
+  - id: completed_order_count
+    question: "How many orders have a completed status?"
+    tags: [filtered, count, status]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE status = 'completed'
+    assertions:
+      - type: exact_number
+        value: 32454
+
+  # ── Brand ranking ─────────────────────────────────────────────────
+  - id: top_brand_by_revenue
+    question: "Which brand generates the most revenue?"
+    tags: [ranking, brand]
+    verification_sql: >
+      SELECT brand, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      WHERE brand IS NOT NULL
+      GROUP BY brand
+      ORDER BY revenue DESC
+      LIMIT 1
+    assertions:
+      - type: contains_all
+        values: ["TechFirst"]
+      - type: approx_number
+        value: 6259925.18
+        tolerance: 1000
+
+  # ══════════════════════════════════════════════════════════════════
+  # EDGE CASE TESTS
+  # ══════════════════════════════════════════════════════════════════
+
+  # ── Data Integrity Tests ─────────────────────────────────────────
+  # These verify that staging layer correctly cleans/transforms bad data
+  - id: no_future_transactions
+    question: "How many orders have a transaction date in the future?"
+    tags: [edge_case, data_integrity]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE transaction_date > CURRENT_DATE
+    assertions:
+      - type: exact_number
+        value: 0
+      - type: contains_any
+        values: ["0", "zero", "none", "no orders"]
+
+  # ── NULL Handling Edge Cases ─────────────────────────────────────
+
+  - id: orders_without_campaign
+    question: "How many orders are not linked to any marketing campaign?"
+    tags: [edge_case, null_handling]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE campaign_id IS NULL
+    assertions:
+      - type: exact_number
+        value: 22573
+
+  - id: products_with_null_brand
+    question: "How many products don't have a brand specified?"
+    tags: [edge_case, null_handling]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.dim_products
+      WHERE brand IS NULL
+    assertions:
+      - type: exact_number
+        value: 3
+
+  - id: campaign_attributed_revenue
+    question: "What percentage of revenue comes from orders linked to marketing campaigns?"
+    tags: [edge_case, null_handling, calculation]
+    verification_sql: >
+      SELECT ROUND(100.0 * SUM(CASE WHEN campaign_id IS NOT NULL THEN total ELSE 0 END) / SUM(total), 2) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: approx_number
+        value: 42.60
+        tolerance: 1.0
+
+  # ── Negative/Inverse Queries ─────────────────────────────────────
+
+  - id: non_completed_order_count
+    question: "How many orders are NOT completed (pending, cancelled, or refunded)?"
+    tags: [edge_case, inverse, status]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE status != 'completed'
+    assertions:
+      - type: exact_number
+        value: 3526
+
+  - id: cancelled_order_count
+    question: "How many orders were cancelled?"
+    tags: [edge_case, status]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE status = 'cancelled'
+    assertions:
+      - type: exact_number
+        value: 1692
+
+  # ── Boundary Condition Tests ─────────────────────────────────────
+
+  - id: lowest_revenue_category
+    question: "Excluding uncategorized products, which product category has the lowest total revenue?"
+    tags: [edge_case, boundary, min]
+    verification_sql: >
+      SELECT category, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      WHERE category IS NOT NULL
+      GROUP BY category
+      ORDER BY revenue ASC
+      LIMIT 1
+    assertions:
+      - type: contains_all
+        values: ["Books"]
+
+  - id: largest_single_order
+    question: "What is the largest single order total?"
+    tags: [edge_case, boundary, max]
+    verification_sql: >
+      SELECT ROUND(MAX(total), 2) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: approx_number
+        value: 6460.56
+        tolerance: 5.0
+
+  # ── Time Boundary Tests ──────────────────────────────────────────
+
+  - id: first_order_date
+    question: "What was the date of the first order ever recorded?"
+    tags: [edge_case, time, min]
+    verification_sql: >
+      SELECT MIN(transaction_date) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: contains_any
+        values: ["2020-01-20", "January 20, 2020", "Jan 20 2020", "2020/01/20"]
+
+  - id: last_order_date
+    question: "What was the date of the most recent order?"
+    tags: [edge_case, time, max]
+    verification_sql: >
+      SELECT MAX(transaction_date) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: contains_any
+        values: ["2024-12-31", "December 31, 2024", "Dec 31 2024", "2024/12/31"]
+
+  - id: orders_in_december
+    question: "How many orders were placed in December 2024?"
+    tags: [edge_case, time, filtered]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE EXTRACT(YEAR FROM transaction_date) = 2024
+        AND EXTRACT(MONTH FROM transaction_date) = 12
+    assertions:
+      - type: exact_number
+        value: 3270
+
+  - id: q4_vs_q1_revenue
+    question: "Was Q4 2024 revenue higher or lower than Q1 2024?"
+    tags: [edge_case, time, comparison]
+    verification_sql: >
+      SELECT
+        ROUND(SUM(CASE WHEN EXTRACT(QUARTER FROM transaction_date) = 4 AND EXTRACT(YEAR FROM transaction_date) = 2024 THEN total ELSE 0 END), 2) as q4_revenue,
+        ROUND(SUM(CASE WHEN EXTRACT(QUARTER FROM transaction_date) = 1 AND EXTRACT(YEAR FROM transaction_date) = 2024 THEN total ELSE 0 END), 2) as q1_revenue
+      FROM marts.fct_orders
+    assertions:
+      - type: contains_any
+        values: ["higher", "more", "greater", "Q4 was higher"]
+
+  # ── Payment Method Tests ─────────────────────────────────────────
+
+  - id: least_popular_payment_method
+    question: "Excluding orders with missing payment info, which payment method is used least frequently?"
+    tags: [edge_case, payment, min]
+    verification_sql: >
+      SELECT payment_method, COUNT(*) as order_count
+      FROM marts.fct_orders
+      WHERE payment_method IS NOT NULL
+      GROUP BY payment_method
+      ORDER BY order_count ASC
+      LIMIT 1
+    assertions:
+      - type: contains_any
+        values: ["paypal", "Paypal", "PayPal"]
+
+  - id: credit_card_revenue_share
+    question: "What percentage of total revenue comes from credit card orders?"
+    tags: [edge_case, payment, calculation]
+    verification_sql: >
+      SELECT ROUND(100.0 * SUM(CASE WHEN payment_method = 'credit_card' THEN total ELSE 0 END) / SUM(total), 2) as answer
+      FROM marts.fct_orders
+    assertions:
+      - type: approx_number
+        value: 19.54
+        tolerance: 1.0
+
+  # ── Geographic Tests ─────────────────────────────────────────────
+
+  - id: orders_by_state_count
+    question: "How many unique states have customers placed orders from?"
+    tags: [edge_case, geographic, distinct]
+    verification_sql: >
+      SELECT COUNT(DISTINCT customer_state) as answer
+      FROM marts.fct_orders
+      WHERE customer_state IS NOT NULL
+    assertions:
+      - type: exact_number
+        value: 15
+
+  - id: lowest_revenue_state
+    question: "Which state has the lowest total revenue?"
+    tags: [edge_case, geographic, min]
+    verification_sql: >
+      SELECT customer_state, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      WHERE customer_state IS NOT NULL
+      GROUP BY customer_state
+      ORDER BY revenue ASC
+      LIMIT 1
+    assertions:
+      - type: contains_any
+        values: ["WA", "Washington", "wa"]
