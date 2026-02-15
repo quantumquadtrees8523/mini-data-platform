@@ -161,7 +161,24 @@ class Agent:
                 )
             except Exception as e:
                 err = str(e).lower()
-                retryable = "rate" in err or "429" in err or "quota" in err or "timeout" in err or "deadline" in err
+                # Fail fast on auth errors — no point retrying
+                if "401" in err or "403" in err or "unauthenticated" in err or "permission" in err:
+                    if "api key" in err:
+                        raise RuntimeError(
+                            "Authentication failed. Make sure you're using a Gemini API key "
+                            "from https://aistudio.google.com/apikey (not a Google Cloud key)."
+                        ) from e
+                    raise
+                retryable = (
+                    "rate limit" in err
+                    or "resource_exhausted" in err
+                    or "429" in err
+                    or "quota" in err
+                    or "timeout" in err
+                    or "deadline" in err
+                    or "503" in err
+                    or "unavailable" in err
+                )
                 if retryable and attempt < MAX_RETRIES - 1:
                     wait = 2 ** (attempt + 1)
                     _log(f"Retryable error ({type(e).__name__}). Waiting {wait}s...")
