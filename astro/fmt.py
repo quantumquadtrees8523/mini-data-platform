@@ -56,6 +56,37 @@ def answer_header() -> str:
     return f"\n{BOLD_GREEN}Answer{RESET}\n"
 
 
+def answer_box(text: str, width: int = 50) -> str:
+    """Wrap the answer in a unicode box."""
+    import textwrap
+
+    inner_width = width - 4  # Account for "│ " and " │"
+
+    # Wrap text to fit inside the box
+    lines = []
+    for paragraph in text.split("\n"):
+        if paragraph.strip():
+            wrapped = textwrap.wrap(paragraph, width=inner_width)
+            lines.extend(wrapped)
+        else:
+            lines.append("")
+
+    # Build the box
+    top = f"┌{'─' * (width - 2)}┐"
+    header = f"│ {BOLD_GREEN}Answer{RESET}{' ' * (inner_width - 6)} │"
+    divider = f"├{'─' * (width - 2)}┤"
+    bottom = f"└{'─' * (width - 2)}┘"
+
+    content_lines = []
+    for line in lines:
+        # Pad line to fill the box width
+        padded = line + " " * (inner_width - len(line))
+        content_lines.append(f"│ {padded} │")
+
+    parts = [top, header, divider] + content_lines + [bottom]
+    return "\n".join(parts)
+
+
 def prompt() -> str:
     """Return the styled prompt string for input()."""
     if _COLOR:

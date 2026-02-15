@@ -10,7 +10,6 @@ from google.genai import types
 from astro.db import DataLayer
 from astro import fmt
 from astro import display
-from astro.charts import render_chart
 
 SYSTEM_PROMPT = """\
 You are a data analyst agent with access to a DuckDB data warehouse.
@@ -341,15 +340,8 @@ class Agent:
                     return result
 
                 case "create_chart":
-                    render_chart(
-                        chart_type=args["chart_type"],
-                        x_data=args.get("x_data", []),
-                        y_data=args["y_data"],
-                        x_label=args.get("x_label", ""),
-                        y_label=args.get("y_label", ""),
-                        title=args.get("title", ""),
-                    )
-                    return {"success": True, "message": "Chart displayed to user."}
+                    # Chart acknowledged but not rendered during intermediate steps
+                    return {"success": True, "message": "Chart acknowledged."}
 
                 case _:
                     return {"error": f"Unknown tool: {name}"}
@@ -366,16 +358,6 @@ def _log(msg: str):
 
 def _print_step(tool_name: str, args: dict):
     """Print agent steps to stderr so the user can follow along."""
-    match tool_name:
-        case "list_schemas":
-            _log(fmt.step("~", "Exploring database schemas..."))
-        case "list_tables":
-            _log(fmt.step("~", f"Listing tables in '{args['schema']}'..."))
-        case "describe_table":
-            _log(fmt.step("~", f"Describing {args['schema']}.{args['table']}..."))
-        case "sample_data":
-            _log(fmt.step("~", f"Sampling data from {args['schema']}.{args['table']}..."))
-        case "execute_query":
-            _log(fmt.step_sql(args.get("sql", "")))
-        case "create_chart":
-            _log(fmt.step("~", f"Creating {args.get('chart_type', '')} chart..."))
+    # Only show SQL execution; other steps use brief summaries from display.py
+    if tool_name == "execute_query":
+        _log(fmt.step_sql(args.get("sql", "")))
