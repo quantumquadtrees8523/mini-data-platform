@@ -88,14 +88,23 @@ class DataLayer:
 
     def execute_query(self, sql: str) -> dict:
         """Execute a read-only SQL query. Results capped at 100 rows."""
-        result = self.conn.execute(sql)
+        # First get the total count without LIMIT
+        count_sql = f"SELECT COUNT(*) FROM ({sql.rstrip(';')}) AS subquery"
+        try:
+            total = self.conn.execute(count_sql).fetchone()[0]
+        except Exception:
+            # If count query fails, fall back to fetching and counting
+            total = None
+        
+        # Now fetch the limited result set
+        result = self.conn.execute(f"{sql.rstrip(';')} LIMIT 100")
         columns = [desc[0] for desc in result.description]
         rows = result.fetchall()
-
-        total = len(rows)
-        truncated = total > 100
-        if truncated:
-            rows = rows[:100]
+        
+        # If we couldn't get total from count query, use fetched rows length
+        if total is None:
+            total = len(rows)
+        truncated = total == 100
 
         output = {
             "columns": columns,
