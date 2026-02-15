@@ -40,11 +40,7 @@ echo ""
 # Step 3: Run ingestion DAGs
 echo "📥 Step 3/3: Running ingestion and transformation..."
 export AIRFLOW_HOME="$AIRFLOW_DIR"
-uv run python dags/ingest_products.py
-uv run python dags/ingest_users.py
-uv run python dags/ingest_transactions.py
-uv run python dags/ingest_campaigns.py
-uv run python dags/ingest_pageviews.py
+uv run python dags/ingest_sources.py
 
 # Run dbt transformations
 uv run python dags/run_dbt.py

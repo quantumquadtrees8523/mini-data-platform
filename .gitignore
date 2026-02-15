@@ -50,3 +50,5 @@ evidence/.evidence/customization/
 dbt_project/target/
 dbt_project/logs/
 dbt_project/.user.yml
+
+*.egg-info/

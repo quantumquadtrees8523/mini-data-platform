@@ -2,7 +2,7 @@
 
 ```bash
 export GEMINI_API_KEY=your-api-key
-uv run astro
+just agent
 ```
 
 The CLI looks for `warehouse/data.duckdb` in the current directory or up to 6 parent directories.
@@ -46,6 +46,22 @@ npm run dev       # Start dev server
 # Open http://localhost:3000
 ```
 
+## Common Commands
+
+Run `just` to see all available commands.
+
+| Command | Description |
+|---------|-------------|
+| `just setup` | Full initialization (generate data, init Airflow, run pipeline) |
+| `just pipeline` | Run full pipeline: sync → ingest → transform |
+| `just sync` | Sync sources.yml manifest with CSV files on disk |
+| `just ingest` | Load all manifest sources into DuckDB raw layer |
+| `just transform` | Run dbt staging + marts transformations |
+| `just query` | Open interactive DuckDB shell |
+| `just agent` | Launch the Astro agent CLI |
+
+**Adding new data sources**: Drop a CSV in `sources/<system>/` and run `just pipeline`.
+
 ---
 
 ## Manual Setup (Advanced)
@@ -78,16 +94,12 @@ export AIRFLOW_HOME=$(pwd)
 uv run airflow db migrate
 ```
 
-### 4. Run ingestion DAGs
+### 4. Run ingestion DAG
 
 ```bash
 # From airflow/ directory
 export AIRFLOW_HOME=$(pwd)
-uv run python dags/ingest_products.py
-uv run python dags/ingest_users.py
-uv run python dags/ingest_transactions.py
-uv run python dags/ingest_campaigns.py
-uv run python dags/ingest_pageviews.py
+uv run python dags/ingest_sources.py
 ```
 
 ### 5. Run dbt transformations
@@ -109,15 +121,17 @@ uv run dbt build --profiles-dir .
 ```sh
 mini-data-platform/
 ├── sources/              # Raw source data (CSV files)
+│   ├── sources.yml       # Source manifest (auto-synced by scripts/sync_sources.py)
 │   ├── postgres/         # Sales, products, users
 │   ├── salesforce/       # Marketing campaigns
 │   └── analytics/        # Page view events
 ├── airflow/
 │   ├── dags/            # Airflow DAGs for ingestion and transformation
-│   │   ├── ingest_*.py  # Load data from sources → raw schema
+│   │   ├── ingest_sources.py  # Load all manifest sources → raw schema
 │   │   ├── run_dbt.py   # Run dbt staging → marts pipeline
 │   │   └── build_evidence.py  # Build Evidence dashboards
 │   └── utils/           # Shared utilities
+├── justfile              # Command runner — run `just` to see all recipes
 ├── warehouse/           # DuckDB database (data.duckdb)
 ├── dbt_project/         # dbt transformations
 │   └── models/
@@ -133,7 +147,7 @@ mini-data-platform/
 
 ### Raw Layer (`raw` schema)
 
-- Loaded by Airflow ingestion DAGs
+- Loaded by `ingest_sources` DAG from `sources/sources.yml` manifest
 - 5 tables: products, users, transactions, campaigns, pageviews
 
 ### Staging Layer (`staging` schema)

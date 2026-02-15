@@ -31,3 +31,25 @@ def ensure_warehouse_exists():
     
     conn.close()
     return str(WAREHOUSE_PATH)
+
+
+def load_csv_to_raw(warehouse_path: str, csv_path: str, table_name: str) -> int:
+    """Load a CSV file into a raw.* table in the DuckDB warehouse.
+
+    This is a plain function (not an Airflow task) so it can be called
+    from DAGs, scripts, or agents.
+
+    Returns:
+        Number of rows loaded.
+    """
+    conn = duckdb.connect(warehouse_path)
+    try:
+        conn.execute(f"""
+            CREATE OR REPLACE TABLE raw.{table_name} AS
+            SELECT * FROM read_csv_auto('{csv_path}')
+        """)
+        count = conn.execute(f"SELECT COUNT(*) FROM raw.{table_name}").fetchone()[0]
+        print(f"Loaded {count} records into raw.{table_name}")
+        return count
+    finally:
+        conn.close()

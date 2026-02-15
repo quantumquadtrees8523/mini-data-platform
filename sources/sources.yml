@@ -1,0 +1,29 @@
+# Source manifest for the ingestion pipeline.
+# To add a new source: place a CSV in sources/<system>/ and add an entry here,
+# or run `just sync` to auto-discover CSVs.
+
+sources:
+- table: products
+  path: sources/postgres/products.csv
+  system: postgres
+- table: users
+  path: sources/postgres/users.csv
+  system: postgres
+- table: transactions
+  path: sources/postgres/transactions.csv
+  system: postgres
+- table: campaigns
+  path: sources/salesforce/campaigns.csv
+  system: salesforce
+- table: pageviews
+  path: sources/analytics/pageviews.csv
+  system: analytics
+- table: chocolate_sales
+  path: sources/postgres/chocolate_sales.csv
+  system: postgres
+- table: tmdb_movies
+  path: sources/postgres/tmdb_movies.csv
+  system: postgres
+- table: StudentPerformanceFactors
+  path: sources/salesforce/StudentPerformanceFactors.csv
+  system: salesforce
