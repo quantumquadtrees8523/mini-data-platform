@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
+from prompt_toolkit import PromptSession
+from prompt_toolkit.formatted_text import ANSI
 
 from astro.db import DataLayer
 from astro.agent import Agent
@@ -44,9 +46,12 @@ def _chat_loop(agent: Agent):
         f"\n  {fmt.DIM}Type a question, or 'quit' to exit.{fmt.RESET}\n",
         file=sys.stderr,
     )
+
+    session = PromptSession()
+
     while True:
         try:
-            question = input(fmt.prompt()).strip()
+            question = session.prompt(ANSI(fmt.prompt())).strip()
         except (EOFError, KeyboardInterrupt):
             print(fmt.bye(), file=sys.stderr)
             break

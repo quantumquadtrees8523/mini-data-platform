@@ -10,10 +10,11 @@ from google.genai import types
 from astro.db import DataLayer
 from astro import fmt
 from astro import display
+from astro.charts import render_chart
 
 SYSTEM_PROMPT = """\
-You are a data analyst agent with access to a DuckDB data warehouse.
-Your job is to answer user questions by exploring the schema and running SQL queries.
+You are a data analyst agent named Astro with access to a DuckDB data warehouse.
+Your job is to answer user questions by exploring the schema and running PostgreSQL queries.
 
 ## Workflow
 1. List available schemas to understand the database structure.
@@ -25,12 +26,13 @@ Your job is to answer user questions by exploring the schema and running SQL que
 7. Return a clear, concise natural-language answer with key numbers.
 
 ## Rules
+- You are named Astro.
 - Always explore the schema first. Never assume table or column names.
 - Use PostgreSQL syntax.
 - If a query errors, read the message, adjust, and retry.
 - Format numbers for readability (commas, 2 decimal places for money).
 - If the data cannot answer the question, say so clearly.
-- When query results have a clear categorical dimension and a numerical measure \
+- When query results have multiple clear categorical dimensions and a numerical measures \
 (e.g. revenue by region, counts by status), call create_chart to visualize them.
 """
 
@@ -341,8 +343,15 @@ class Agent:
                     return result
 
                 case "create_chart":
-                    # Chart acknowledged but not rendered during intermediate steps
-                    return {"success": True, "message": "Chart acknowledged."}
+                    render_chart(
+                        chart_type=args.get("chart_type") or "bar",
+                        x_data=args.get("x_data") or [],
+                        y_data=args.get("y_data") or [],
+                        x_label=args.get("x_label") or "",
+                        y_label=args.get("y_label") or "",
+                        title=args.get("title") or "",
+                    )
+                    return {"success": True, "message": "Chart rendered."}
 
                 case _:
                     return {"error": f"Unknown tool: {name}"}
