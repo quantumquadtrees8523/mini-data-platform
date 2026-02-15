@@ -1,0 +1,124 @@
+# Evaluation test cases for the Astro agent.
+#
+# Each case defines a natural-language question, a verification SQL query
+# to compute the ground truth, and assertions to check the agent's answer.
+#
+# Assertion types:
+#   exact_number:   Agent answer must contain this exact integer/float.
+#   approx_number:  Answer must contain a number within `tolerance` of expected.
+#   contains_all:   Answer must contain ALL listed strings (case-insensitive).
+#   contains_any:   Answer must contain AT LEAST ONE listed string.
+#   ordered_list:   Items must appear in the answer in the given order.
+
+cases:
+
+  # ── Simple count ──────────────────────────────────────────────────
+  - id: total_order_count
+    question: "How many orders are in the database?"
+    tags: [simple, count]
+    verification_sql: >
+      SELECT COUNT(*) as answer FROM marts.fct_orders
+    assertions:
+      - type: exact_number
+        value: 35980
+
+  # ── Filtered aggregation ──────────────────────────────────────────
+  - id: revenue_2024
+    question: "What was our total revenue in 2024?"
+    tags: [aggregation, filtered, revenue]
+    verification_sql: >
+      SELECT ROUND(SUM(total), 2) as answer
+      FROM marts.fct_orders
+      WHERE EXTRACT(YEAR FROM transaction_date) = 2024
+    assertions:
+      - type: approx_number
+        value: 18652996.66
+        tolerance: 1000
+      - type: contains_any
+        values: ["18,652,996", "18652996", "18.6 million", "18,653"]
+
+  # ── Top-N ranking ─────────────────────────────────────────────────
+  - id: top_3_categories_by_revenue
+    question: "What are the top 3 product categories by total revenue?"
+    tags: [top_n, ranking, categories]
+    verification_sql: >
+      SELECT category, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      GROUP BY category
+      ORDER BY revenue DESC
+      LIMIT 3
+    assertions:
+      - type: contains_all
+        values: ["Electronics", "Sports", "Home & Garden"]
+      - type: ordered_list
+        values: ["Electronics", "Sports", "Home & Garden"]
+
+  # ── Calculation (average) ─────────────────────────────────────────
+  - id: average_order_value
+    question: "What is the average order value?"
+    tags: [calculation, average]
+    verification_sql: >
+      SELECT ROUND(AVG(total), 2) as answer FROM marts.fct_orders
+    assertions:
+      - type: approx_number
+        value: 1006.25
+        tolerance: 5.0
+      - type: contains_any
+        values: ["1,006", "1006", "$1,006"]
+
+  # ── Segment analysis ──────────────────────────────────────────────
+  - id: top_customer_segment_by_revenue
+    question: "Which customer segment generates the most revenue?"
+    tags: [join, segments]
+    verification_sql: >
+      SELECT customer_segment, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      GROUP BY customer_segment
+      ORDER BY revenue DESC
+      LIMIT 1
+    assertions:
+      - type: contains_all
+        values: ["medium_value"]
+      - type: approx_number
+        value: 14225883.54
+        tolerance: 1000
+
+  # ── Count distinct ────────────────────────────────────────────────
+  - id: unique_customers_with_orders
+    question: "How many unique customers have placed at least one order?"
+    tags: [distinct, customers]
+    verification_sql: >
+      SELECT COUNT(DISTINCT user_id) as answer FROM marts.fct_orders
+    assertions:
+      - type: exact_number
+        value: 4409
+
+  # ── Filtered count ────────────────────────────────────────────────
+  - id: completed_order_count
+    question: "How many orders have a completed status?"
+    tags: [filtered, count, status]
+    verification_sql: >
+      SELECT COUNT(*) as answer
+      FROM marts.fct_orders
+      WHERE status = 'completed'
+    assertions:
+      - type: exact_number
+        value: 32454
+
+  # ── Brand ranking ─────────────────────────────────────────────────
+  - id: top_brand_by_revenue
+    question: "Which brand generates the most revenue?"
+    tags: [ranking, brand]
+    verification_sql: >
+      SELECT brand, ROUND(SUM(total), 2) as revenue
+      FROM marts.fct_orders
+      WHERE brand IS NOT NULL
+      GROUP BY brand
+      ORDER BY revenue DESC
+      LIMIT 1
+    assertions:
+      - type: contains_all
+        values: ["TechFirst"]
+      - type: approx_number
+        value: 6259925.18
+        tolerance: 1000
