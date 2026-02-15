@@ -1,11 +1,17 @@
 [project]
-name = "mini-data-platform"
+name = "surya-mini-data-platform"
 version = "0.1.0"
-description = "Add your description here"
+description = "Agentically query your DuckDB data warehouse using natural language"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "apache-airflow>=3.1.2",
     "dbt-duckdb>=1.10.0",
     "duckdb>=1.4.1",
+    "google-genai>=1.0.0",
+    "prompt-toolkit>=3.0.0",
+    "python-dotenv>=1.0.0",
 ]
+
+[project.scripts]
+astro = "astro.cli:main"
