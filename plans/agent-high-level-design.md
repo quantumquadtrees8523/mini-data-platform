@@ -7,7 +7,7 @@ A CLI agent that answers analytical questions against DuckDB using Gemini functi
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Terminal                                                       │
-│  $ astro                                                        │
+│  $ uv run astro                                                 │
 │  astro> "What's our top-selling product?"                       │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
