@@ -117,6 +117,7 @@ class Agent:
         else:
             self.client = genai.Client(api_key=api_key)
         self.model = model
+        self._query_errors: list[dict[str, str]] = []
         self._preflight()
 
     def _preflight(self):
@@ -182,6 +183,22 @@ class Agent:
 
         return "(Agent reached maximum turns without a final answer. Try a more specific question.)"
 
+    def _record_query_error(self, sql: str, error: str):
+        """Store a failed query so the model can learn from past mistakes."""
+        self._query_errors.append({"sql": sql, "error": error})
+        _log(f"Recorded query error ({len(self._query_errors)} total)")
+
+    def _build_system_prompt(self) -> str:
+        """Build system prompt, appending any accumulated query errors."""
+        if not self._query_errors:
+            return SYSTEM_PROMPT
+        lines = [SYSTEM_PROMPT, "\n## Previous Query Errors (avoid repeating these mistakes)"]
+        for i, entry in enumerate(self._query_errors, 1):
+            lines.append(f"\n### Error {i}")
+            lines.append(f"SQL: {entry['sql']}")
+            lines.append(f"Error: {entry['error']}")
+        return "\n".join(lines)
+
     def _call_model(self, contents, tools):
         """Call Gemini with exponential-backoff retry for rate limits and timeouts."""
         for attempt in range(MAX_RETRIES):
@@ -191,7 +208,7 @@ class Agent:
                     contents=contents,
                     config=types.GenerateContentConfig(
                         tools=tools,
-                        system_instruction=SYSTEM_PROMPT,
+                        system_instruction=self._build_system_prompt(),
                         temperature=0.1,
                     ),
                 )
@@ -240,11 +257,16 @@ class Agent:
                         args["schema"], args["table"], args.get("limit", 5)
                     )
                 case "execute_query":
-                    return self.dl.execute_query(args["sql"])
+                    result = self.dl.execute_query(args["sql"])
+                    if isinstance(result, dict) and "error" in result:
+                        self._record_query_error(args["sql"], result["error"])
+                    return result
                 case _:
                     return {"error": f"Unknown tool: {name}"}
         except Exception as e:
             _log(f"Tool error: {e}")
+            if name == "execute_query":
+                self._record_query_error(args.get("sql", ""), str(e))
             return {"error": str(e)}
 
 

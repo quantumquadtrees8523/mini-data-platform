@@ -46,22 +46,32 @@ The agent uses `information_schema` to discover schemas, tables, and columns at 
 ### Why cap results at 100 rows?
 Prevents blowing up the LLM context window with huge result sets. The agent is told about truncation so it can refine queries with aggregations or filters.
 
+### Query error memory
+When an `execute_query` call fails (SQL error, DuckDB exception, etc.), the agent records the failed SQL and error message in an in-memory list (`Agent._query_errors`). On every subsequent LLM call, `_build_system_prompt()` appends these past errors to the system prompt under a "Previous Query Errors" section. This lets the model see exactly which queries failed and why, so it avoids repeating the same mistakes (wrong column names, bad syntax, etc.) without consuming extra tool-call turns.
+
 ### Error handling
 - **Rate limits / timeouts**: Exponential backoff, 3 retries.
-- **DB errors**: Caught and returned as tool results so the model can adapt.
+- **Auth errors (401/403)**: Fail fast with actionable message — no retries.
+- **DB errors**: Caught and returned as tool results so the model can adapt; also recorded in query error memory.
 - **Missing API key / DB**: Clear error message and exit.
+- **Preflight check**: A minimal API call on init to catch bad credentials before the agent loop starts.
 - **Runaway loops**: Hard cap at 25 tool-calling turns.
 
 ## Configuration
 
 | Setting | Source | Default |
 |---------|--------|---------|
-| API key | `GEMINI_API_KEY` or `GOOGLE_API_KEY` env var | (required) |
+| API key | `GEMINI_API_KEY` or `GOOGLE_API_KEY` env var / `.env` | (required) |
+| GCP project | `GOOGLE_CLOUD_PROJECT` env var / `.env` | (optional — enables Vertex AI backend) |
+| GCP location | `GOOGLE_CLOUD_LOCATION` env var / `.env` | `us-central1` |
 | Database | `--db` flag or auto-detect `warehouse/data.duckdb` | auto-detect |
 | Model | `--model` flag | `gemini-2.0-flash` |
 
+The CLI auto-loads a `.env` file from the project root via `python-dotenv`.
+
 ## Dependencies Added
 - `google-genai>=1.0.0` (Gemini SDK)
+- `python-dotenv>=1.0.0` (auto-load `.env`)
 - `hatchling` (build backend, for `project.scripts` to register the `astro` CLI)
 
 ## Status
