@@ -78,16 +78,12 @@ export AIRFLOW_HOME=$(pwd)
 uv run airflow db migrate
 ```
 
-### 4. Run ingestion DAGs
+### 4. Run ingestion DAG
 
 ```bash
 # From airflow/ directory
 export AIRFLOW_HOME=$(pwd)
-uv run python dags/ingest_products.py
-uv run python dags/ingest_users.py
-uv run python dags/ingest_transactions.py
-uv run python dags/ingest_campaigns.py
-uv run python dags/ingest_pageviews.py
+uv run python dags/ingest_sources.py
 ```
 
 ### 5. Run dbt transformations
@@ -109,15 +105,17 @@ uv run dbt build --profiles-dir .
 ```sh
 mini-data-platform/
 ├── sources/              # Raw source data (CSV files)
+│   ├── sources.yml       # Source manifest (auto-synced by scripts/sync_sources.py)
 │   ├── postgres/         # Sales, products, users
 │   ├── salesforce/       # Marketing campaigns
 │   └── analytics/        # Page view events
 ├── airflow/
 │   ├── dags/            # Airflow DAGs for ingestion and transformation
-│   │   ├── ingest_*.py  # Load data from sources → raw schema
+│   │   ├── ingest_sources.py  # Load all manifest sources → raw schema
 │   │   ├── run_dbt.py   # Run dbt staging → marts pipeline
 │   │   └── build_evidence.py  # Build Evidence dashboards
 │   └── utils/           # Shared utilities
+├── justfile              # Command runner — run `just` to see all recipes
 ├── warehouse/           # DuckDB database (data.duckdb)
 ├── dbt_project/         # dbt transformations
 │   └── models/
@@ -133,7 +131,7 @@ mini-data-platform/
 
 ### Raw Layer (`raw` schema)
 
-- Loaded by Airflow ingestion DAGs
+- Loaded by `ingest_sources` DAG from `sources/sources.yml` manifest
 - 5 tables: products, users, transactions, campaigns, pageviews
 
 ### Staging Layer (`staging` schema)
