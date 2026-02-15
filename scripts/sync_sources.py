@@ -14,6 +14,7 @@ import yaml
 PROJECT_ROOT = Path(__file__).parent.parent
 SOURCES_DIR = PROJECT_ROOT / "sources"
 MANIFEST_PATH = SOURCES_DIR / "sources.yml"
+DAG_FILE = PROJECT_ROOT / "airflow" / "dags" / "ingest_sources.py"
 
 
 def discover_csvs() -> list[dict]:
@@ -81,6 +82,7 @@ def sync():
             print(f"  - {r['table']} ({r['path']})")
 
     save_manifest(updated)
+    DAG_FILE.touch()  # Update mtime to help Airflow detect changes
     print(f"Manifest updated: {len(updated)} total sources")
 
 

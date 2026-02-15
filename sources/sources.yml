@@ -3,22 +3,18 @@
 # or run `just sync` to auto-discover CSVs.
 
 sources:
-  - table: products
-    path: sources/postgres/products.csv
-    system: postgres
-
-  - table: users
-    path: sources/postgres/users.csv
-    system: postgres
-
-  - table: transactions
-    path: sources/postgres/transactions.csv
-    system: postgres
-
-  - table: campaigns
-    path: sources/salesforce/campaigns.csv
-    system: salesforce
-
-  - table: pageviews
-    path: sources/analytics/pageviews.csv
-    system: analytics
+- table: products
+  path: sources/postgres/products.csv
+  system: postgres
+- table: users
+  path: sources/postgres/users.csv
+  system: postgres
+- table: transactions
+  path: sources/postgres/transactions.csv
+  system: postgres
+- table: campaigns
+  path: sources/salesforce/campaigns.csv
+  system: salesforce
+- table: pageviews
+  path: sources/analytics/pageviews.csv
+  system: analytics

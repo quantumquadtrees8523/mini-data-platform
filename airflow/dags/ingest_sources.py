@@ -7,6 +7,7 @@ in the appropriate sources/ subdirectory.
 """
 from datetime import datetime
 from pathlib import Path
+import sqlite3
 import sys
 
 import yaml
@@ -67,5 +68,19 @@ def ingest_sources():
 dag_instance = ingest_sources()
 
 if __name__ == "__main__":
+    # TODO: Optimization - only clear cache when manifest has changed (e.g., track
+    # manifest hash and compare). Currently clears on every run for simplicity.
+    # Clear stale DAG serialization to ensure test uses current manifest
+    db_path = Path(__file__).parent.parent / "airflow.db"
+    if db_path.exists():
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.execute("DELETE FROM serialized_dag WHERE dag_id = 'ingest_sources'")
+            conn.execute("DELETE FROM dag_version WHERE dag_id = 'ingest_sources'")
+            conn.commit()
+            conn.close()
+        except sqlite3.Error:
+            pass  # Tables might not exist yet
+
     print("Testing ingest_sources DAG...")
     dag_instance.test()
