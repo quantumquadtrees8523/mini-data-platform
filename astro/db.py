@@ -4,6 +4,9 @@ Fully generic — discovers schemas, tables, and columns dynamically
 so it works with any DuckDB warehouse, not just this e-commerce one.
 """
 
+import math
+import re
+
 import duckdb
 from pathlib import Path
 
@@ -88,24 +91,16 @@ class DataLayer:
 
     def execute_query(self, sql: str) -> dict:
         """Execute a read-only SQL query. Results capped at 100 rows."""
-        # First get the total count without LIMIT
-        count_sql = f"SELECT COUNT(*) FROM ({sql.rstrip(';')}) AS subquery"
-        try:
-            total = self.conn.execute(count_sql).fetchone()[0]
-        except Exception:
-            # If count query fails, fall back to fetching and counting
-            total = None
-        
-        # Now fetch the limited result set
-        result = self.conn.execute(f"{sql.rstrip(';')} LIMIT 100")
+        result = self.conn.execute(sql.rstrip(';'))
         columns = [desc[0] for desc in result.description]
         rows = result.fetchall()
         
-        # If we couldn't get total from count query, use fetched rows length
-        if total is None:
-            total = len(rows)
-        truncated = total == 100
-
+        total = len(rows)
+        truncated = total > 100
+        
+        if truncated:
+            rows = rows[:100]
+        
         output = {
             "columns": columns,
             "rows": [[_serialize(v) for v in row] for row in rows],
@@ -124,6 +119,10 @@ def _serialize(value):
     """Convert a value to a JSON-safe type."""
     if value is None:
         return None
-    if isinstance(value, (int, float, str, bool)):
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+        return value
+    if isinstance(value, (int, str, bool)):
         return value
     return str(value)

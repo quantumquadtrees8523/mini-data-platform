@@ -9,7 +9,6 @@ from google.genai import types
 from astro.db import DataLayer
 from astro import fmt
 from astro import display
-from astro.charts import render_chart
 
 SYSTEM_PROMPT = """\
 You are a data analyst agent named Astro with access to a DuckDB data warehouse.
@@ -21,8 +20,7 @@ Your job is to answer user questions by exploring the schema and running Postgre
 3. Describe table columns to understand the data model.
 4. Optionally sample a few rows to see real values.
 5. Write and execute SQL to answer the question.
-6. If the result contains numerical data suitable for visualization, create a chart.
-7. Return a clear, concise natural-language answer with key numbers.
+6. Return a clear, concise natural-language answer that summarizes your findings.
 
 ## Rules
 - You are named Astro.
@@ -31,8 +29,6 @@ Your job is to answer user questions by exploring the schema and running Postgre
 - If a query errors, read the message, adjust, and retry.
 - Format numbers for readability (commas, 2 decimal places for money).
 - If the data cannot answer the question, say so clearly.
-- When query results have multiple clear categorical dimensions and a numerical measures \
-(e.g. revenue by region, counts by status), call create_chart to visualize them.
 """
 
 MAX_TURNS = 25
@@ -99,37 +95,6 @@ TOOL_DECLARATIONS = [
             "required": ["sql"],
         },
     },
-    {
-        "name": "create_chart",
-        "description": (
-            "Create a terminal chart to visualize query results. "
-            "Call this after executing a query that returns data suitable for plotting."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "chart_type": {
-                    "type": "string",
-                    "enum": ["bar", "line", "scatter", "histogram"],
-                    "description": "Type of chart.",
-                },
-                "x_data": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "X-axis values (labels or numbers).",
-                },
-                "y_data": {
-                    "type": "array",
-                    "items": {"type": "number"},
-                    "description": "Y-axis numerical values.",
-                },
-                "x_label": {"type": "string", "description": "X-axis label."},
-                "y_label": {"type": "string", "description": "Y-axis label."},
-                "title": {"type": "string", "description": "Chart title."},
-            },
-            "required": ["chart_type", "y_data"],
-        },
-    },
 ]
 
 
@@ -138,7 +103,7 @@ class Agent:
         self,
         data_layer: DataLayer,
         api_key: str,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-3.0-flash",
     ):
         self.dl = data_layer
         self.client = genai.Client(api_key=api_key)
@@ -200,7 +165,7 @@ class Agent:
             response_parts = []
             for fc_part in function_calls:
                 fc = fc_part.function_call
-                args = dict(fc.args) if fc.args else {}
+                args = _to_native(fc.args) if fc.args else {}
                 result = self._execute_tool(fc.name, args)
                 response_parts.append(
                     types.Part(
@@ -330,17 +295,6 @@ class Agent:
                         })
                     return result
 
-                case "create_chart":
-                    render_chart(
-                        chart_type=args.get("chart_type") or "bar",
-                        x_data=args.get("x_data") or [],
-                        y_data=args.get("y_data") or [],
-                        x_label=args.get("x_label") or "",
-                        y_label=args.get("y_label") or "",
-                        title=args.get("title") or "",
-                    )
-                    return {"success": True, "message": "Chart rendered."}
-
                 case _:
                     return {"error": f"Unknown tool: {name}"}
         except Exception as e:
@@ -357,9 +311,27 @@ class Agent:
 
 
 _ARG_DEFAULTS: dict[str, dict[str, object]] = {
-    "create_chart": {"x_data": [], "y_data": [], "x_label": "", "y_label": "", "title": ""},
     "sample_data": {"limit": 5},
 }
+
+
+def _to_native(obj):
+    """Recursively convert protobuf-like objects to native Python types."""
+    if obj is None:
+        return None
+    if isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, dict):
+        return {k: _to_native(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_native(item) for item in obj]
+    # Handle protobuf RepeatedComposite and MapComposite
+    if hasattr(obj, 'items'):  # dict-like
+        return {k: _to_native(v) for k, v in obj.items()}
+    if hasattr(obj, '__iter__'):  # list-like
+        return [_to_native(item) for item in obj]
+    # Fallback: try to convert to a known type
+    return obj
 
 
 def _sanitize_args(tool_name: str, args: dict) -> dict:
