@@ -118,6 +118,8 @@ class Agent:
             self.client = genai.Client(api_key=api_key)
         self.model = model
         self._query_errors: list[dict[str, str]] = []
+        self._contents: list[types.Content] = []
+        self._tools = [types.Tool(function_declarations=TOOL_DECLARATIONS)]
         self._preflight()
 
     def _preflight(self):
@@ -140,17 +142,16 @@ class Agent:
             raise
 
     def ask(self, question: str) -> str:
-        """Run the agentic loop: question → tool calls → answer."""
-        contents = [
+        """Append a user question and run the tool-calling loop until an answer."""
+        self._contents.append(
             types.Content(
                 role="user",
                 parts=[types.Part(text=question)],
             )
-        ]
-        tools = [types.Tool(function_declarations=TOOL_DECLARATIONS)]
+        )
 
         for turn in range(MAX_TURNS):
-            response = self._call_model(contents, tools)
+            response = self._call_model(self._contents, self._tools)
             candidate = response.candidates[0]
 
             function_calls = [
@@ -158,11 +159,13 @@ class Agent:
             ]
 
             if not function_calls:
+                # Persist the model's final text reply in history
+                self._contents.append(candidate.content)
                 text_parts = [p.text for p in candidate.content.parts if p.text]
                 return "\n".join(text_parts) if text_parts else "(No response from model)"
 
             # Append model's response (with function calls) to conversation
-            contents.append(candidate.content)
+            self._contents.append(candidate.content)
 
             # Execute each function call and collect responses
             response_parts = []
@@ -179,7 +182,7 @@ class Agent:
                     )
                 )
 
-            contents.append(types.Content(parts=response_parts))
+            self._contents.append(types.Content(parts=response_parts))
 
         return "(Agent reached maximum turns without a final answer. Try a more specific question.)"
 

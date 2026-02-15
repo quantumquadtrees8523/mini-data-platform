@@ -1,27 +1,27 @@
 # Phase 1: Natural Language Query via CLI
 
 ## Goal
-Expose an agent via `astro --ask "<question>"` that can answer ad-hoc analytical questions against any DuckDB warehouse.
+Expose an interactive agent via `astro` (or `astro --ask "<question>"`) that can answer ad-hoc analytical questions against any DuckDB warehouse in a persistent chat session.
 
 ## Architecture
 
 ```
-User question
-  │
-  ▼
-astro CLI (argparse)
-  │
-  ▼
-Gemini Agent (tool-calling loop)
-  │  ╭──────────────────────╮
-  ├──┤ list_schemas()       │
-  ├──┤ list_tables(schema)  │
-  ├──┤ describe_table(s, t) │──▶ DataLayer ──▶ DuckDB
-  ├──┤ sample_data(s, t, n) │
-  ├──┤ execute_query(sql)   │
-  │  ╰──────────────────────╯
-  ▼
-Natural language answer (stdout)
+$ astro                        # interactive chat (or --ask for first question)
+  ┌─────────────────────────┐
+  │  astro> <question>       │◄── REPL loop (stdin)
+  └────────┬────────────────┘
+           │
+           ▼
+  Gemini Agent (persistent conversation history)
+    │  ╭──────────────────────╮
+    ├──┤ list_schemas()       │
+    ├──┤ list_tables(schema)  │
+    ├──┤ describe_table(s, t) │──▶ DataLayer ──▶ DuckDB
+    ├──┤ sample_data(s, t, n) │
+    ├──┤ execute_query(sql)   │
+    │  ╰──────────────────────╯
+    ▼
+  Answer (stdout) ──► back to astro> prompt
 ```
 
 ## Files Created
@@ -29,9 +29,9 @@ Natural language answer (stdout)
 | File | Purpose |
 |------|---------|
 | `astro/__init__.py` | Package marker |
-| `astro/cli.py` | CLI entry point — parses `--ask`, `--db`, `--model`; resolves warehouse path and API key |
+| `astro/cli.py` | CLI entry point — parses args, runs optional `--ask`, then enters interactive REPL |
 | `astro/db.py` | `DataLayer` class — generic DuckDB introspection and query execution |
-| `astro/agent.py` | `Agent` class — Gemini function-calling loop with retry/backoff |
+| `astro/agent.py` | `Agent` class — Gemini function-calling loop with persistent conversation history |
 
 ## Design Decisions
 
@@ -45,6 +45,14 @@ The agent uses `information_schema` to discover schemas, tables, and columns at 
 
 ### Why cap results at 100 rows?
 Prevents blowing up the LLM context window with huge result sets. The agent is told about truncation so it can refine queries with aggregations or filters.
+
+### Interactive chat with persistent history
+The agent maintains `_contents` (the full Gemini conversation) as instance state rather than local to a single `ask()` call. This means:
+- Schema discovery from question 1 is already in context for question 2 — no redundant `list_schemas` / `describe_table` calls.
+- The model can reference prior answers ("break that down by region").
+- Query error memory also persists across questions in the same session.
+
+The CLI runs an `astro>` REPL after startup. `--ask` is optional — if provided, that question is answered first, then the REPL continues. Ctrl-C during a query cancels it without killing the session; Ctrl-C/Ctrl-D at the prompt exits.
 
 ### Query error memory
 When an `execute_query` call fails (SQL error, DuckDB exception, etc.), the agent records the failed SQL and error message in an in-memory list (`Agent._query_errors`). On every subsequent LLM call, `_build_system_prompt()` appends these past errors to the system prompt under a "Previous Query Errors" section. This lets the model see exactly which queries failed and why, so it avoids repeating the same mistakes (wrong column names, bad syntax, etc.) without consuming extra tool-call turns.
@@ -78,7 +86,7 @@ The CLI auto-loads a `.env` file from the project root via `python-dotenv`.
 - [x] Project structure and dependencies
 - [x] DuckDB data layer with introspection
 - [x] Gemini agent with tool-calling loop
-- [x] CLI entry point registered (`astro --ask`)
+- [x] CLI entry point with interactive REPL (`astro` / `astro --ask`)
 - [x] Data layer smoke tested against warehouse
 - [ ] End-to-end test with live Gemini API
 

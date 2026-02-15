@@ -1,4 +1,4 @@
-"""CLI entry point: astro --ask '<question>'"""
+"""CLI entry point: astro --ask '<question>' or interactive chat."""
 
 import argparse
 import os
@@ -37,6 +37,30 @@ def _find_warehouse() -> Path | None:
     return None
 
 
+def _chat_loop(agent: Agent):
+    """Interactive REPL — read questions from stdin until quit or EOF."""
+    print("\n  Type a question, or 'quit' to exit.\n", file=sys.stderr)
+    while True:
+        try:
+            question = input("astro> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nBye!", file=sys.stderr)
+            break
+        if not question:
+            continue
+        if question.lower() in ("quit", "exit", "q"):
+            print("Bye!", file=sys.stderr)
+            break
+        print(file=sys.stderr)
+        try:
+            answer = agent.ask(question)
+            print(f"\n{answer}\n")
+        except KeyboardInterrupt:
+            print("\n  (interrupted — ask another question or 'quit')\n", file=sys.stderr)
+        except Exception as e:
+            print(f"\n  Error: {e}\n", file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="astro",
@@ -44,8 +68,7 @@ def main():
     )
     parser.add_argument(
         "--ask",
-        required=True,
-        help="Question to ask about your data.",
+        help="Question to ask (then enter interactive chat). Omit to start chatting directly.",
     )
     parser.add_argument(
         "--db",
@@ -90,11 +113,17 @@ def main():
     dl = DataLayer(db_path)
     try:
         agent = Agent(dl, api_key, model=args.model, project=project, location=location)
-        print(f"\n  Analyzing: {args.ask}\n", file=sys.stderr)
-        answer = agent.ask(args.ask)
-        print(f"\n{answer}")
+
+        # Answer the initial --ask question if provided
+        if args.ask:
+            print(f"\n  Analyzing: {args.ask}\n", file=sys.stderr)
+            answer = agent.ask(args.ask)
+            print(f"\n{answer}\n")
+
+        # Drop into interactive chat
+        _chat_loop(agent)
     except KeyboardInterrupt:
-        print("\nInterrupted.", file=sys.stderr)
+        print("\nBye!", file=sys.stderr)
         sys.exit(130)
     except Exception as e:
         print(f"\nError: {e}", file=sys.stderr)
