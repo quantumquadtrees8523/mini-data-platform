@@ -103,7 +103,7 @@ class Agent:
         self,
         data_layer: DataLayer,
         api_key: str,
-        model: str = "gemini-3.0-flash",
+        model: str = "gemini-2.5-flash",
     ):
         self.dl = data_layer
         self.client = genai.Client(api_key=api_key)

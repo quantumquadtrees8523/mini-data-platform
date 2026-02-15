@@ -106,7 +106,7 @@ def main():
     api_key = api_key.strip()
 
     # --- run ---
-    model = "gemini-3.0-flash"
+    model = "gemini-2.5-flash"
     dl = DataLayer(db_path)
     try:
         print(fmt.banner(str(db_path), model), file=sys.stderr)
