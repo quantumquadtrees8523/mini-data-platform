@@ -18,3 +18,12 @@ sources:
 - table: pageviews
   path: sources/analytics/pageviews.csv
   system: analytics
+- table: chocolate_sales
+  path: sources/postgres/chocolate_sales.csv
+  system: postgres
+- table: tmdb_movies
+  path: sources/postgres/tmdb_movies.csv
+  system: postgres
+- table: StudentPerformanceFactors
+  path: sources/salesforce/StudentPerformanceFactors.csv
+  system: salesforce
