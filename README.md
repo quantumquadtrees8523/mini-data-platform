@@ -46,6 +46,22 @@ npm run dev       # Start dev server
 # Open http://localhost:3000
 ```
 
+## Common Commands
+
+Run `just` to see all available commands.
+
+| Command | Description |
+|---------|-------------|
+| `just setup` | Full initialization (generate data, init Airflow, run pipeline) |
+| `just pipeline` | Run full pipeline: sync → ingest → transform |
+| `just sync` | Sync sources.yml manifest with CSV files on disk |
+| `just ingest` | Load all manifest sources into DuckDB raw layer |
+| `just transform` | Run dbt staging + marts transformations |
+| `just query` | Open interactive DuckDB shell |
+| `just agent` | Launch the Astro agent CLI |
+
+**Adding new data sources**: Drop a CSV in `sources/<system>/` and run `just pipeline`.
+
 ---
 
 ## Manual Setup (Advanced)
