@@ -115,6 +115,7 @@ TOOL_DECLARATIONS = [
                 },
                 "x_data": {
                     "type": "array",
+                    "items": {"type": "string"},
                     "description": "X-axis values (labels or numbers).",
                 },
                 "y_data": {
