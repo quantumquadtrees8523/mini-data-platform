@@ -68,7 +68,6 @@ The agent can call these functions during reasoning:
 | Max API retries | 3 | `agent.py:39` |
 | Query row limit | 100 | `db.py:100` |
 | Sample row limit | 10 | `db.py:75` |
-| Vertex AI region | `us-central1` | `cli.py:110` |
 | .env search depth | 6 parent dirs | `cli.py:20` |
 | DB auto-detect path | `warehouse/data.duckdb` | `cli.py:34` |
 
@@ -82,8 +81,6 @@ cli.py → reads GEMINI_API_KEY or GOOGLE_API_KEY from env
 agent.py → genai.Client(api_key=...)
         → _preflight() runs a minimal "ping" to verify auth
 ```
-
-Vertex AI backend enabled when `GOOGLE_CLOUD_PROJECT` is set.
 
 ### Request Flow
 ```

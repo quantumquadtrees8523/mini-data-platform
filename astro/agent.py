@@ -139,20 +139,9 @@ class Agent:
         data_layer: DataLayer,
         api_key: str,
         model: str = "gemini-2.0-flash",
-        project: str | None = None,
-        location: str | None = None,
     ):
         self.dl = data_layer
-        if project:
-            _log(fmt.step("~", f"Using Vertex AI backend (project={project}, location={location or 'us-central1'})"))
-            self.client = genai.Client(
-                vertexai=True,
-                project=project,
-                location=location or "us-central1",
-                api_key=api_key,
-            )
-        else:
-            self.client = genai.Client(api_key=api_key)
+        self.client = genai.Client(api_key=api_key)
         self.model = model
         self._query_errors: list[dict[str, str]] = []
         self._contents: list[types.Content] = []

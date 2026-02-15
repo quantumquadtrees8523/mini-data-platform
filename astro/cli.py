@@ -105,16 +105,12 @@ def main():
         sys.exit(1)
     api_key = api_key.strip()
 
-    # --- Vertex AI config (optional) ---
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT")
-    location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-
     # --- run ---
     model = "gemini-2.0-flash"
     dl = DataLayer(db_path)
     try:
         print(fmt.banner(str(db_path), model), file=sys.stderr)
-        agent = Agent(dl, api_key, model=model, project=project, location=location)
+        agent = Agent(dl, api_key, model=model)
         print(fmt.success("Connected."), file=sys.stderr)
 
         # Drop into interactive chat
