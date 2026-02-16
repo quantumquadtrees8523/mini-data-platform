@@ -1,31 +1,5 @@
-# Mini Data Platform
-
-```bash
-export GEMINI_API_KEY=your-api-key
-just agent
-```
-
-The CLI looks for `warehouse/data.duckdb` in the current directory or up to 6 parent directories.
-
----
-
-If you have an applied AI interview at Astronomer, we'll ask you to build a small project around this repo. You can also proactively do this as part of your application to speed up the process.
-
-This repo is a synthetic data platform containing mock data csv files, Airflow DAGs, dbt models, Evidence dashboards, and a DuckDB data warehouse. Your objective is to create an agent exposed via a CLI to interact with the data platform. This CLI agent should be geared specifically towards ad-hoc questions and analysis. Things like:
-
-- How much in sales did we do last quarter?
-- Which two products are most frequently bought together?
-- Are there any anomalies with how we sell products?
-- What's our average customer lifetime value?
-- ... and other, more complex things!
-
-To complete this, fork the repo and build a CLI agent where you can send questions like the ones above. We have no particular requirements around languages, model providers, methods, etc - instead, we want you to demonstrate how you think about these problems! While this repo is representative of an e-commerce company's data platform, you should aim to keep your implementation generic enough that you could plug in other "mini data platforms". See how much you can infer based on the code and warehouse metadata instead of providing explicit documentation about this data platform to the agent upfront.
-
-To submit, send us a fork of your repo. You should modify / create a new README that outlines your approach and where you'd continue building things if you had more time. This should take no more than a few hours.
-
----
-
-## What Was Added (User / Claude-Generated)
+## What Was Added
+_This document is heavily claude generated and human verified_
 
 Everything below this line, and the sections it modifies, reflects work done on top of the original repo. The original repo shipped with synthetic data generation scripts, Airflow DAGs (one per source table), dbt models, Evidence dashboards, and a DuckDB warehouse. The following changes were introduced across two pull requests:
 
