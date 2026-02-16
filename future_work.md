@@ -6,7 +6,7 @@ This document outlines directions for continued development of the Mini Data Pla
 
 ## Agent
 
-- **Reasoning with a pro model.** The agent can support deeper reasoning over data by routing complex analytical questions to a more capable model (e.g., Gemini Pro or equivalent) rather than relying solely on Gemini 3.0 Flash by default.
+- **Reasoning with a pro model.** The agent can support deeper reasoning over data by routing complex analytical questions to a more capable model (e.g., Gemini Pro or equivalent) rather than relying solely on Gemini 2.5 Flash by default.
 - **Bun/JS-based interface.** The terminal REPL could be replaced or supplemented with a Bun/JavaScript-based interface for a more expressive, interactive user experience.
 - **Parallel deep dives.** We should be able to parallelize deep-dive analyses on the data, which will become increasingly important as the sheer volume of data grows.
 - **Agent-generated charts.** The agent should be able to generate and showcase charts to drive home data-based ideas and make insights more tangible.
