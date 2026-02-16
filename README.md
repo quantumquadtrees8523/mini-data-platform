@@ -1,5 +1,7 @@
 ## Quickstart
 
+This project was built using python 3.12.10
+
 Run the setup script to initialize everything:
 
 ```bash
