@@ -10,7 +10,7 @@ This document outlines directions for continued development of the Mini Data Pla
 - **Bun/JS-based interface.** The terminal REPL could be replaced or supplemented with a Bun/JavaScript-based interface for a more expressive, interactive user experience.
 - **Parallel deep dives.** We should be able to parallelize deep-dive analyses on the data, which will become increasingly important as the sheer volume of data grows.
 - **Agent-generated charts.** The agent should be able to generate and showcase charts to drive home data-based ideas and make insights more tangible.
-- **Task-specific agents with model selection.** Rather than routing everything through a single model, we should break apart agents to handle more specific tasks using purpose-matched models instead of defaulting to 3.0 Flash for everything.
+- **Task-specific agents with model selection.** Rather than routing everything through a single model, we should break apart agents to handle more specific tasks using purpose-matched models instead of defaulting to 2.5 Flash for everything.
 - **Semantic index for self-reference.** At sufficient scale, the agent should have access to a semantic index that it can use to reference its own prior work — past queries, insights, and analytical artifacts.
 - **Publish to PyPI.** We want to push this specific agent library to PyPI so it can be dropped into any DuckDB-based mini data platform as a reusable package.
 - **Backend-agnostic interfaces.** The agent should expose interfaces that allow it to interact with more than just DuckDB — supporting other data stores and query engines.
