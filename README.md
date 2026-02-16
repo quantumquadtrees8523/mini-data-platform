@@ -29,7 +29,7 @@ To submit, send us a fork of your repo. You should modify / create a new README 
 
 Everything below this line, and the sections it modifies, reflects work done on top of the original repo. The original repo shipped with synthetic data generation scripts, Airflow DAGs (one per source table), dbt models, Evidence dashboards, and a DuckDB warehouse. The following changes were introduced across two pull requests:
 
-[High Level Thought Process]([url](https://docs.google.com/document/d/1jtkSHYeztzElSry4m3hesk9kLJhFrS2geD90AqAQa_A/edit?tab=t.0))
+[High Level Thought Process](https://docs.google.com/document/d/1jtkSHYeztzElSry4m3hesk9kLJhFrS2geD90AqAQa_A/edit?tab=t.0)
 
 ### PR 1 — Astro CLI Agent (`astro/`)
 
