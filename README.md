@@ -1,7 +1,9 @@
 ## What Was Added
 _This document is heavily claude generated and human verified_
 
-Everything below this line, and the sections it modifies, reflects work done on top of the original repo. The original repo shipped with synthetic data generation scripts, Airflow DAGs (one per source table), dbt models, Evidence dashboards, and a DuckDB warehouse. The following changes were introduced across two pull requests
+Everything below this line, and the sections it modifies, reflects work done on top of the original repo. The original repo shipped with synthetic data generation scripts, Airflow DAGs (one per source table), dbt models, Evidence dashboards, and a DuckDB warehouse. The following changes were introduced across three pull requests.
+
+It is important to note that proving performance of the agent over many types of data was prioritized over portability of the agent to multiple mini-data-platforms. See `future_work.md` for a reference to modularizing the agent and putting up on PyPi.
 
 [High Level Thought Process](https://docs.google.com/document/d/1jtkSHYeztzElSry4m3hesk9kLJhFrS2geD90AqAQa_A/edit?tab=t.0)
 
