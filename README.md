@@ -54,6 +54,19 @@ Added by the user with Claude assistance. Replaced the original five per-source 
 - **Updated `justfile`** — Added `just sync`, `just ingest`, `just pipeline`, and other recipes.
 - **Updated `setup.sh`** — Streamlined initialization to use the new pipeline.
 
+### PR 3 — Agent Evaluation Framework (`evals/`)
+
+Added by the user with Claude assistance. A pytest-based evaluation suite that validates agent answers against ground-truth SQL queries run directly on the warehouse.
+
+- **`evals/cases.yml`** — 25 YAML-defined test cases (7 basic + 18 edge cases). Each case specifies a natural-language question, a verification SQL query, and one or more assertions. Coverage spans simple counts, filtered aggregations, top-N rankings, NULL handling, time boundaries, payment methods, and geographic queries.
+- **`evals/test_runner.py`** — Pytest runner with two parametrized test functions:
+  - `test_ground_truth_sql` — Offline sanity check that each verification SQL query executes without error (no API key required).
+  - `test_agent_eval` — End-to-end evaluation: runs the verification SQL, asks the agent the question, then checks all assertions against the agent's answer.
+- **`evals/assertions.py`** — Assertion helpers supporting six types: `exact_number`, `row_count`, `approx_number` (absolute or relative tolerance), `contains_all`, `contains_any`, and `ordered_list`. Includes a number-extraction utility that handles commas, dollar signs, and suffixes like "million"/"billion".
+- **`evals/conftest.py`** — Shared session-scoped fixtures for the DuckDB connection, `DataLayer`, API key resolution (`GEMINI_API_KEY` / `GOOGLE_API_KEY`), and a function-scoped `Agent` fixture for conversation isolation.
+- **Updated `justfile`** — Added `just eval` (full suite, requires API key) and `just eval-sql` (SQL-only validation, no API key).
+- **Updated `pyproject.toml`** — Added pytest configuration and the `eval` marker.
+
 ---
 
 ## Quick Setup
@@ -92,6 +105,8 @@ Run `just` to see all available commands.
 | `just transform` | Run dbt staging + marts transformations |
 | `just query` | Open interactive DuckDB shell |
 | `just agent` | Launch the Astro agent CLI |
+| `just eval` | Run full agent evaluation suite (requires `GEMINI_API_KEY`) |
+| `just eval-sql` | Run ground-truth SQL validation only (no API key needed) |
 
 **Adding new data sources**: Drop a CSV in `sources/<system>/` and run `just pipeline`.
 
@@ -159,6 +174,11 @@ mini-data-platform/
 │   ├── db.py             #   DuckDB DataLayer and schema introspection
 │   ├── display.py        #   Result display formatting
 │   └── fmt.py            #   ANSI terminal formatting utilities
+├── evals/                # [ADDED] Agent evaluation framework
+│   ├── cases.yml         #   25 test cases with ground-truth SQL and assertions
+│   ├── test_runner.py    #   Pytest runner (ground-truth + end-to-end tests)
+│   ├── assertions.py     #   Assertion helpers (6 types)
+│   └── conftest.py       #   Shared fixtures (DB, agent, API key)
 ├── sources/              # Raw source data (CSV files)
 │   ├── sources.yml       # [ADDED] Source manifest (auto-synced by scripts/sync_sources.py)
 │   ├── postgres/         # products, users, transactions, chocolate_sales, tmdb_movies
@@ -189,7 +209,7 @@ mini-data-platform/
 └── .env.example          # [ADDED] Template for GEMINI_API_KEY
 ```
 
-> Items marked **[ADDED]** were introduced in the two PRs described above and are not part of the original repo.
+> Items marked **[ADDED]** were introduced in the three PRs described above and are not part of the original repo.
 
 ## Data Pipeline
 
