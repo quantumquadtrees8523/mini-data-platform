@@ -1,3 +1,58 @@
+## Quickstart
+
+Run the setup script to initialize everything:
+
+```bash
+./setup.sh
+```
+
+This will:
+1. Generate synthetic data
+2. Initialize Airflow and load data into DuckDB
+3. Run dbt transformations
+
+Then view the dashboards:
+
+```bash
+cd evidence
+npm install       # First time only
+npm run sources   # Build data sources
+npm run dev       # Start dev server
+# Open http://localhost:3000
+```
+## Suggested Workflows
+Sync data to duckdb and then chat with agent
+```
+$ just pipeline
+$ just agent
+...
+```
+
+Run evals
+```
+$ just eval
+$ just eval-sql # for non agentic tests
+```
+
+## Full list of Commands
+
+Run `just` to see all available commands.
+
+| Command | Description |
+|---------|-------------|
+| `just setup` | Full initialization (generate data, init Airflow, run pipeline) |
+| `just pipeline` | Run full pipeline: sync → ingest → transform |
+| `just sync` | Sync sources.yml manifest with CSV files on disk |
+| `just ingest` | Load all manifest sources into DuckDB raw layer |
+| `just transform` | Run dbt staging + marts transformations |
+| `just query` | Open interactive DuckDB shell |
+| `just agent` | Launch the Astro agent CLI |
+| `just eval` | Run full agent evaluation suite (requires `GEMINI_API_KEY`) |
+| `just eval-sql` | Run ground-truth SQL validation only (no API key needed) |
+
+**Adding new data sources**: Drop a CSV in `sources/<system>/` and run `just pipeline`.
+
+---
 ## What Was Added
 _This document is heavily claude generated and human verified_
 
@@ -44,49 +99,6 @@ Added by the user with Claude assistance. A pytest-based evaluation suite that v
 - **`evals/conftest.py`** — Shared session-scoped fixtures for the DuckDB connection, `DataLayer`, API key resolution (`GEMINI_API_KEY` / `GOOGLE_API_KEY`), and a function-scoped `Agent` fixture for conversation isolation.
 - **Updated `justfile`** — Added `just eval` (full suite, requires API key) and `just eval-sql` (SQL-only validation, no API key).
 - **Updated `pyproject.toml`** — Added pytest configuration and the `eval` marker.
-
----
-
-## Quick Setup
-
-Run the setup script to initialize everything:
-
-```bash
-./setup.sh
-```
-
-This will:
-1. Generate synthetic data
-2. Initialize Airflow and load data into DuckDB
-3. Run dbt transformations
-
-Then view the dashboards:
-
-```bash
-cd evidence
-npm install       # First time only
-npm run sources   # Build data sources
-npm run dev       # Start dev server
-# Open http://localhost:3000
-```
-
-## Common Commands
-
-Run `just` to see all available commands.
-
-| Command | Description |
-|---------|-------------|
-| `just setup` | Full initialization (generate data, init Airflow, run pipeline) |
-| `just pipeline` | Run full pipeline: sync → ingest → transform |
-| `just sync` | Sync sources.yml manifest with CSV files on disk |
-| `just ingest` | Load all manifest sources into DuckDB raw layer |
-| `just transform` | Run dbt staging + marts transformations |
-| `just query` | Open interactive DuckDB shell |
-| `just agent` | Launch the Astro agent CLI |
-| `just eval` | Run full agent evaluation suite (requires `GEMINI_API_KEY`) |
-| `just eval-sql` | Run ground-truth SQL validation only (no API key needed) |
-
-**Adding new data sources**: Drop a CSV in `sources/<system>/` and run `just pipeline`.
 
 ---
 
